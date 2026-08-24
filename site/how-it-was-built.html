@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="How this résumé site was built: AWS S3 + CloudFront, CDK, GitHub Actions OIDC, and AI-assisted engineering." />
+  <title>How This Was Built – Raymond Page</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header role="banner">
+    <div class="container">
+      <h1 id="site-name"><a href="index.html" style="color:inherit;text-decoration:none;">Raymond Page</a></h1>
+      <p class="subtitle">How This Was Built</p>
+      <nav aria-label="Site navigation">
+        <ul>
+          <li><a href="index.html">← Back to Résumé</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" class="container prose" style="padding-top:2.5rem;padding-bottom:4rem;">
+
+    <h2>Overview</h2>
+    <p>
+      This résumé site is intentionally a small, working demonstration of the
+      platform-engineering practices described in the résumé itself: a golden-path
+      static-site deployment on AWS, all infrastructure defined as code, a real
+      CI/CD pipeline with no long-lived secrets, and documented AI-assisted build
+      process. The site is not a novelty — the architecture is the point.
+    </p>
+    <div class="callout">
+      <strong>Why this matters for the DevEx role:</strong> The job description asks
+      for hands-on experience with internal developer platforms, golden paths,
+      IaC, GitHub Actions, and evaluating AI-assisted engineering practices.
+      This project exercises all of those muscles on a real, public artifact.
+    </div>
+
+    <h2>Architecture</h2>
+    <h3>Hosting: S3 + CloudFront (Origin Access Control)</h3>
+    <p>
+      Site files live in a private S3 bucket — no public access is enabled at the
+      bucket level. A CloudFront distribution sits in front using
+      <strong>Origin Access Control (OAC)</strong>, the current AWS-recommended
+      approach (replacing the legacy Origin Access Identity). CloudFront is the
+      only authorized principal that can read objects from the bucket.
+    </p>
+    <p>
+      This is the textbook "golden path" architecture for static sites on AWS:
+      fast global edge delivery, HTTPS enforced end-to-end, origin kept private,
+      and essentially zero operational overhead at this traffic level.
+    </p>
+
+    <h3>Caching Strategy</h3>
+    <ul>
+      <li><strong>HTML files</strong> — <code>Cache-Control: no-cache</code> (1-second CloudFront TTL). Updates appear immediately after a CloudFront invalidation.</li>
+      <li><strong>Static assets</strong> (CSS, JS, images) — long cache TTL (1 year). These are treated as immutable; change the filename/hash to bust cache.</li>
+    </ul>
+
+    <h3>HTTPS &amp; Custom Domain</h3>
+    <p>
+      HTTP-to-HTTPS redirect is enforced at the CloudFront level. The site currently
+      runs on a <code>*.cloudfront.net</code> domain. The CDK stack is structured so
+      a custom domain + ACM certificate can be added later by uncommenting a small
+      block in the stack file — no rebuild required. See <code>infra/README.md</code>
+      for the exact steps.
+    </p>
+
+    <h3>Infrastructure as Code: AWS CDK (TypeScript)</h3>
+    <p>
+      All AWS resources — the S3 bucket, CloudFront distribution, OAC, bucket policy,
+      and cache behaviors — are defined in a single CDK stack
+      (<code>infra/lib/resume-site-stack.ts</code>). No resources were created
+      manually in the console. This means:
+    </p>
+    <ul>
+      <li>The infrastructure is reproducible, reviewable, and version-controlled.</li>
+      <li>Drift is detectable via <code>cdk diff</code>.</li>
+      <li>Teardown is a single <code>cdk destroy</code>.</li>
+    </ul>
+
+    <h2>CI/CD Pipeline (GitHub Actions)</h2>
+    <h3>No Long-Lived AWS Keys</h3>
+    <p>
+      The pipeline uses <strong>GitHub OIDC federation</strong> to assume an AWS IAM
+      role — there are no AWS access keys stored as GitHub secrets. On each push to
+      <code>main</code>, GitHub presents a short-lived OIDC token; AWS STS validates
+      it and issues temporary credentials scoped to exactly the permissions needed
+      for deployment.
+    </p>
+    <p>
+      This is a meaningful DevSecOps detail: credential rotation is automatic,
+      blast radius is limited, and there are no static secrets to leak or rotate.
+    </p>
+
+    <h3>Deploy Workflow (<code>deploy.yml</code>)</h3>
+    <ol>
+      <li>Check out code.</li>
+      <li>Install Node dependencies for the CDK app (<code>infra/</code>).</li>
+      <li>Assume the deployment IAM role via OIDC (<code>aws-actions/configure-aws-credentials</code>).</li>
+      <li>Run <code>cdk deploy --require-approval never</code> to provision/update infrastructure.</li>
+      <li>Sync site files to S3 (<code>aws s3 sync</code>) with appropriate cache-control headers.</li>
+      <li>Create a CloudFront invalidation for <code>/*</code> so updated HTML is served immediately.</li>
+    </ol>
+
+    <h3>PR Infrastructure Diff (<code>cdk-diff.yml</code>)</h3>
+    <p>
+      On pull requests that touch <code>infra/**</code>, a separate workflow runs
+      <code>cdk diff</code> and posts the output as a PR comment. Infrastructure
+      changes are visible in review before merge — a small but meaningful guardrail
+      that mirrors enterprise change-management practices.
+    </p>
+
+    <h2>Content Architecture: Data-Driven Résumé</h2>
+    <p>
+      Résumé content lives in <code>site/content.json</code> — a structured JSON
+      file separate from the HTML template and rendering logic. Updating the résumé
+      means editing the JSON, not touching HTML. The renderer (<code>site/build.js</code>)
+      reads the JSON at page load and populates the DOM.
+    </p>
+    <p>
+      This "content as data" separation mirrors the golden-path / platform-template
+      pattern central to developer experience work: the <em>what</em> (content) is
+      decoupled from the <em>how</em> (template), so authors don't need to understand
+      the rendering layer to update content.
+    </p>
+
+    <h2>AI-Assisted Build Process</h2>
+    <h3>What Was AI-Assisted</h3>
+    <ul>
+      <li><strong>Initial scaffolding</strong> — project structure, CDK stack skeleton, GitHub Actions workflow YAML, and this prose were drafted with Claude (Anthropic) as a co-author, guided by specific prompts describing the architecture requirements.</li>
+      <li><strong>CSS design system</strong> — the custom-property-based stylesheet was drafted by the AI and reviewed/adjusted for accessibility (contrast ratios, focus styles, responsive breakpoints).</li>
+      <li><strong>IAM policy scoping</strong> — the AI drafted least-privilege IAM policy statements; each was reviewed against AWS documentation before use.</li>
+    </ul>
+    <h3>What Was Human-Reviewed and Edited</h3>
+    <ul>
+      <li><strong>All résumé content</strong> — sourced directly from the source résumé document. No AI-generated claims about experience, titles, dates, or metrics.</li>
+      <li><strong>Security choices</strong> — OIDC over static keys, OAC over public bucket, block-public-access settings — each was a deliberate decision, not an AI default.</li>
+      <li><strong>CDK construct selection</strong> — e.g., choosing <code>aws_cloudfront.Distribution</code> with OAC over the legacy <code>CloudFrontWebDistribution</code>.</li>
+      <li><strong>This write-up</strong> — drafted with AI assistance, then read and edited by hand for accuracy and tone.</li>
+    </ul>
+    <h3>The Broader Point</h3>
+    <p>
+      AI assistance accelerated the initial scaffolding significantly — the kind of
+      work that normally takes an hour of copy-pasting boilerplate took minutes.
+      The value was in moving quickly from "blank repo" to "working skeleton" so
+      human judgment could be applied to the parts that matter: content accuracy,
+      security posture, and architectural decisions. That is exactly the model the
+      DevEx role is meant to enable at scale.
+    </p>
+
+    <h2>Estimated AWS Cost</h2>
+    <p>
+      At resume-traffic volumes (tens to low hundreds of requests/month):
+    </p>
+    <ul>
+      <li><strong>S3</strong>: effectively $0.00 (well under 1 GB storage, negligible GET requests via CloudFront).</li>
+      <li><strong>CloudFront</strong>: 1 TB free transfer/month on the free tier; well under that. Estimated &lt; $0.50/month after free tier.</li>
+      <li><strong>Data transfer</strong>: negligible at this traffic level.</li>
+      <li><strong>Total estimated monthly cost: &lt; $1.00</strong>, likely $0.00–$0.10 in practice.</li>
+    </ul>
+
+    <h2>Adding a Custom Domain (Future)</h2>
+    <p>
+      To add a custom domain (e.g., <code>resume.example.com</code>):
+    </p>
+    <ol>
+      <li>Request a public ACM certificate in <code>us-east-1</code> (required for CloudFront).</li>
+      <li>Uncomment the <code>domainNames</code> and <code>certificate</code> props in <code>infra/lib/resume-site-stack.ts</code>.</li>
+      <li>Add an <code>ARecord</code> in Route 53 pointing to the CloudFront distribution.</li>
+      <li>Run <code>cdk deploy</code>.</li>
+    </ol>
+    <p>
+      The stack is already structured for this — no redesign needed.
+    </p>
+
+    <h2>Repository Structure</h2>
+    <pre><code>developer-experience-concepts/
+├── .github/
+│   └── workflows/
+│       ├── deploy.yml          # Deploy on push to main
+│       └── cdk-diff.yml        # CDK diff on PRs touching infra/
+├── infra/                      # AWS CDK app (TypeScript)
+│   ├── bin/
+│   │   └── resume-site.ts      # CDK app entry point
+│   ├── lib/
+│   │   └── resume-site-stack.ts # S3 + CloudFront stack
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── cdk.json
+├── site/                       # Static site content
+│   ├── index.html              # Résumé page (template)
+│   ├── how-it-was-built.html   # This page
+│   ├── 404.html                # Custom error page
+│   ├── styles.css              # Design system
+│   ├── build.js                # Content renderer (reads content.json)
+│   └── content.json            # Résumé data (edit this to update content)
+└── README.md                   # Root documentation</code></pre>
+
+  </main>
+
+  <footer role="contentinfo">
+    <div class="container">
+      <p>Raymond Page &middot; <a href="index.html">Résumé</a> &middot; <a href="how-it-was-built.html">How This Was Built</a></p>
+    </div>
+  </footer>
+</body>
+</html>

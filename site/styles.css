@@ -1,0 +1,417 @@
+/* ============================================================
+   Base reset & custom properties
+   ============================================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f7f8fa;
+  --color-border: #e2e5ea;
+  --color-text: #1a1d23;
+  --color-text-muted: #5a6170;
+  --color-accent: #1a4e8a;
+  --color-accent-hover: #153e6e;
+  --color-highlight-bg: #eef3fa;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-size-base: 1rem;
+  --font-size-sm: 0.875rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+  --line-height: 1.65;
+  --radius: 6px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.07);
+  --max-width: 860px;
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2.5rem;
+  --space-xl: 4rem;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* ============================================================
+   Accessibility
+   ============================================================ */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-accent);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  z-index: 100;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-sm);
+}
+
+/* ============================================================
+   Header
+   ============================================================ */
+header {
+  background: var(--color-accent);
+  color: #fff;
+  padding: var(--space-lg) 0 var(--space-md);
+}
+
+header h1 {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+header .subtitle {
+  font-size: var(--font-size-lg);
+  opacity: 0.85;
+  margin-top: 0.25rem;
+}
+
+header nav {
+  margin-top: var(--space-sm);
+}
+
+header nav ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+}
+
+header nav a {
+  color: rgba(255,255,255,0.9);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: border-color 0.15s;
+}
+header nav a:hover,
+header nav a:focus-visible {
+  border-color: rgba(255,255,255,0.8);
+}
+
+/* ============================================================
+   Main sections
+   ============================================================ */
+main {
+  padding: var(--space-xl) var(--space-sm);
+}
+
+section {
+  margin-bottom: var(--space-xl);
+}
+
+section:last-child {
+  margin-bottom: 0;
+}
+
+h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-accent);
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+/* ============================================================
+   Summary / contact
+   ============================================================ */
+#summary-text {
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+  max-width: 720px;
+}
+
+.contact-bar {
+  margin-top: var(--space-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.contact-bar a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.contact-bar a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================
+   Competencies
+   ============================================================ */
+.competencies-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-xs) var(--space-sm);
+}
+
+.competencies-grid li {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.5rem var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+/* ============================================================
+   Highlights
+   ============================================================ */
+.highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.highlight-card {
+  background: var(--color-highlight-bg);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  box-shadow: var(--shadow);
+}
+
+.highlight-card h3 {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-bottom: var(--space-xs);
+}
+
+.highlight-card p {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: var(--line-height);
+}
+
+/* ============================================================
+   Experience
+   ============================================================ */
+.employer-block {
+  margin-bottom: var(--space-lg);
+}
+
+.employer-name {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.employer-location {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-left: 0.5rem;
+}
+
+.role-block {
+  margin-top: var(--space-md);
+  padding-left: var(--space-sm);
+  border-left: 2px solid var(--color-border);
+}
+
+.role-title {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.role-dates {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.role-block ul {
+  margin-top: var(--space-xs);
+  padding-left: 1.25rem;
+}
+
+.role-block li {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  margin-bottom: 0.35rem;
+  line-height: var(--line-height);
+}
+
+/* ============================================================
+   Education
+   ============================================================ */
+.education-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.education-item h3 {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.education-item p {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+footer {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-md) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+footer a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+footer a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================
+   How-it-was-built page extras
+   ============================================================ */
+.prose h2 {
+  margin-top: var(--space-lg);
+}
+
+.prose h3 {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-xs);
+}
+
+.prose p,
+.prose li {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: var(--line-height);
+  margin-bottom: var(--space-xs);
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.5rem;
+  margin-bottom: var(--space-sm);
+}
+
+.prose code {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 0.1em 0.4em;
+  font-size: 0.9em;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.prose pre {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-sm);
+  overflow-x: auto;
+  margin-bottom: var(--space-sm);
+}
+
+.prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.callout {
+  background: var(--color-highlight-bg);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-md) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 600px) {
+  header h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  .highlights-grid,
+  .competencies-grid {
+    grid-template-columns: 1fr;
+  }
+
+  main {
+    padding: var(--space-lg) var(--space-xs);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0f1117;
+    --color-surface: #1a1d23;
+    --color-border: #2e3340;
+    --color-text: #e8eaf0;
+    --color-text-muted: #9aa0ad;
+    --color-accent: #5b9bd5;
+    --color-accent-hover: #7ab3e0;
+    --color-highlight-bg: #1a2434;
+  }
+
+  header {
+    background: #0a2a4a;
+  }
+}
