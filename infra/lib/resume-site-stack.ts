@@ -200,8 +200,15 @@ export class ResumeSiteStack extends cdk.Stack {
     // bare wildcard, so we match on `sub` using wildcards after the owner
     // and repo name to tolerate the optional ID suffix, rather than an exact
     // string match.
+    //
+    // The deploy job in deploy.yml declares `environment: production`,
+    // which changes the sub claim's suffix from `:ref:refs/heads/main` to
+    // `:environment:production` — GitHub Actions uses the environment name
+    // in `sub` instead of the ref whenever a job targets an environment.
+    // If the environment is ever removed from that job, this pattern must
+    // change back to `:ref:refs/heads/main`.
     const githubSubPullRequest = `repo:${githubOwner}*/${githubRepoName}*:pull_request`;
-    const githubSubMainPush = `repo:${githubOwner}*/${githubRepoName}*:ref:refs/heads/main`;
+    const githubSubMainPush = `repo:${githubOwner}*/${githubRepoName}*:environment:production`;
 
     // CDK bootstrap roles (created once per account/region by `cdk bootstrap`)
     // that GitHub Actions assumes in order to run `cdk diff` / `cdk deploy`.
