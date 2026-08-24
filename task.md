@@ -57,6 +57,86 @@ engineering. Feature ideas below are grouped accordingly. Priority order
 as decided 2026-08-24: **DORA metrics scorecard first**, then Bedrock AI
 chat, golden-path template repo, and DevSecOps CI hardening as time allows.
 
+### 0. Email OTP access gate — makes the deployed site invite-only
+
+**Decision (2026-08-24):** the deployed site should become **non-public by
+default** — only people who verify control of an allowlisted email address
+(e.g. specific interviewer addresses, or an `@mutualofomaha.com` domain
+suffix) can view it. Important distinction: there is no way to
+cryptographically "trust" an email address without contacting it — this is
+an email-verification (OTP) gate, not a claim-based trust mechanism. The
+GitHub *repo* stays public (per the LICENSE decision above); this only
+gates the *deployed site*.
+
+This changes the site from "static-only" to having a small stateful
+backend, so it's a meaningfully bigger lift than prior features — worth
+sequencing deliberately (probably before or alongside the DORA scorecard
+since it changes the site's fundamental access model).
+
+**Architecture** (single CloudFront distribution, two behaviors):
+
+- Default behavior (`/*`) → existing private S3 origin (OAC), fronted by a
+  **CloudFront Function** (viewer-request) that checks for a valid signed
+  session cookie:
+  - Cookie present + signature/expiry valid → pass through to S3 as today.
+  - Missing/invalid → redirect (302) to `/login.html` (which must itself be
+    excluded from the check, along with static assets it depends on).
+  - CloudFront Functions (not Lambda@Edge) chosen for cost/latency — they
+    now support SHA-256/HMAC via the built-in `crypto` module, enough to
+    verify an HMAC-signed session token without a network call per request.
+- New behavior (`/auth/*`) → API Gateway (HTTP API) → Lambda, **not**
+  cached, so `Set-Cookie` responses reach the browser same-origin as the
+  rest of the site (required for `HttpOnly` cookies to work cleanly without
+  cross-site cookie issues).
+  - `POST /auth/request-code`: looks up the submitted email against an
+    allowlist (DynamoDB — exact addresses and/or domain-suffix entries like
+    `@mutualofomaha.com`). If allowed, generates a 6-digit OTP, stores a
+    **hash** of it (never plaintext) + expiry (~10 min) + attempt counter in
+    DynamoDB (TTL attribute for auto-cleanup), sends it via SES. Returns the
+    same generic response regardless of allowlist match, to avoid leaking
+    which emails/domains are allowlisted (anti-enumeration).
+  - `POST /auth/verify-code`: checks submitted code against the stored
+    hash, enforces a max-attempts lockout, and on success issues a signed
+    session token (HMAC, short secret rotated via CDK deploy) as an
+    `HttpOnly; Secure; SameSite=Lax` cookie scoped to the CloudFront domain.
+- Allowlist management: a small DynamoDB table maintained manually (console
+  or a tiny CLI/script) — not self-service signup. You explicitly add each
+  interviewer's email (or the whole company domain) before sharing the link.
+
+**Security requirements:**
+
+- [ ] OTP codes stored as hashes only, short expiry (~10 min), rate-limited
+      per email and per source IP (API Gateway usage plan / WAF), and
+      locked out after a small number of failed attempts.
+- [ ] Anti-enumeration: `request-code` responses must not reveal whether an
+      email was actually allowlisted.
+- [ ] Session cookie must be `HttpOnly`, `Secure`, `SameSite=Lax`, with a
+      reasonable expiry (e.g. a few days) — not indefinite.
+- [ ] Lambda execution roles scoped tightly: `request-code` Lambda needs
+      SES send + DynamoDB read/write on only its table; `verify-code`
+      Lambda needs DynamoDB read/write on only its table. Neither shares a
+      role with the GitHub OIDC deploy/diff roles.
+- [ ] CloudFront Function must fail closed — any error verifying the
+      session token should redirect to `/login.html`, never pass through.
+- [ ] Rotate the HMAC signing secret via a documented process (e.g. CDK
+      parameter backed by SSM SecureString) rather than hardcoding it
+      long-term in source.
+- [ ] Update README/LICENSE framing once this ships — the "public
+      portfolio site" framing needs a note that the *deployed* site is
+      access-gated even though the repo/source remains public.
+- [ ] Budget/cost check: SES + Lambda + DynamoDB + API Gateway at this
+      scale should be near-zero, but add to the existing AWS Budgets
+      nice-to-have below rather than assuming.
+
+**Open questions to resolve before implementation:**
+
+- Exact allowlist seeding process — manual DynamoDB `put-item` via CLI is
+  simplest to start; a tiny admin script could be added later if needed.
+- Session duration (how long should one verified visitor stay logged in?).
+- Whether the Bedrock chat feature (below) should sit behind this same
+  gate (likely yes — simplifies its own security posture considerably,
+  since it would no longer be reachable by anonymous public traffic).
+
 ### 1. DORA metrics / SEI scorecard — NEXT UP
 
 JD explicitly calls out "own the DORA metrics and Software Engineering
