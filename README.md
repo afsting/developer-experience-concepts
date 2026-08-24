@@ -11,6 +11,10 @@ The résumé content is sourced from Raymond Page's actual experience. The
 _way it was built_ is the artifact — see [**How This Was Built →**](site/how-it-was-built.html)
 for the engineering write-up.
 
+This repository is public for portfolio/demonstration purposes only. See
+[LICENSE](LICENSE) — all rights reserved; no reuse, redistribution, or use
+in AI training datasets is permitted without prior written permission.
+
 ---
 
 ## Architecture
