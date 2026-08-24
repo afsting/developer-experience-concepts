@@ -1,0 +1,79 @@
+{
+  "name": "Raymond Page",
+  "title": "Software Engineer / IS Manager",
+  "email": "raymond.page@mutualofomaha.com",
+  "linkedin": "https://www.linkedin.com/in/raymond-page",
+  "summary": "Software Engineer and IS Manager with deep experience designing and operating internal developer platforms, engineering enablement programs, and cloud-native solutions on AWS. Proven track record leading communities of practice, defining engineering standards, and driving adoption of AI-assisted engineering and emerging technologies across distributed teams. Passionate about developer experience, platform thinking, and translating complex technical strategy into measurable outcomes.",
+  "competencies": [
+    "Internal Developer Platforms & Toolchains",
+    "Engineering Enablement & Golden Paths",
+    "AI-Assisted Engineering Practices",
+    "Cloud Architecture (AWS)",
+    "Infrastructure as Code (CDK / CloudFormation)",
+    "CI/CD Pipeline Design & GitHub Actions",
+    "Community of Practice Leadership",
+    "API & Integration Platform Strategy (MuleSoft)",
+    "DORA Metrics & Engineering Intelligence",
+    "Agile / Scaled Agile (SAFe) Delivery",
+    "Cross-functional Team Leadership",
+    "Vendor & Stakeholder Management"
+  ],
+  "highlights": [
+    {
+      "title": "MuleSoft Days – Engineering Enablement Program",
+      "description": "Designed and ran MuleSoft Days, an internal learning-and-adoption program reaching 53+ participants across engineering teams. Combined hands-on labs, golden-path guidance, and community knowledge-sharing to accelerate consistent API and integration practices."
+    },
+    {
+      "title": "AI / AR-VR / Cloud Communities of Practice",
+      "description": "Founded and led Communities of Practice for AI, Augmented/Virtual Reality, and Cloud technologies. Provided a forum for cross-team learning, emerging-technology evaluation, and engineering standards development aligned to enterprise strategy."
+    },
+    {
+      "title": "Service AI Enablement",
+      "description": "Led Service AI Enablement initiatives, partnering with business and engineering stakeholders to identify, evaluate, and deliver AI-assisted capabilities that improved developer and end-user workflows."
+    },
+    {
+      "title": "Platform & Toolchain Ownership",
+      "description": "Managed engineering toolchains and internal platform components, including developer environment standards, build and deployment pipelines, and integration with enterprise systems — reducing onboarding friction and improving delivery consistency."
+    }
+  ],
+  "experience": [
+    {
+      "company": "Mutual of Omaha",
+      "location": "Omaha, NE",
+      "roles": [
+        {
+          "title": "Software Engineer",
+          "start": "Current",
+          "end": null,
+          "bullets": [
+            "Design and deliver cloud-native solutions on AWS, applying infrastructure-as-code practices (CDK/CloudFormation) and CI/CD pipelines (GitHub Actions).",
+            "Lead Service AI Enablement efforts, evaluating AI-assisted engineering tools and patterns for adoption across the organization.",
+            "Maintain and extend MuleSoft integration platform components; authored reusable API templates and developer guidelines adopted across teams.",
+            "Active contributor to Engineering Communities of Practice for AI, AR/VR, and Cloud; facilitate knowledge-sharing sessions and emerging-tech evaluations."
+          ]
+        },
+        {
+          "title": "IS Manager",
+          "start": "Prior",
+          "end": "Current role",
+          "bullets": [
+            "Managed cross-functional engineering teams delivering platform and product initiatives in an Agile/SAFe environment.",
+            "Owned developer toolchain and internal platform strategy; drove adoption of standardized build, test, and deployment patterns.",
+            "Designed and delivered MuleSoft Days enablement program (53+ participants), establishing golden-path guidance for API development.",
+            "Partnered with enterprise architecture and security on platform governance, least-privilege IAM standards, and cloud migration strategy.",
+            "Led vendor evaluation and relationship management for key engineering platform partners."
+          ]
+        }
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Bachelor of Science",
+      "field": "Information Systems / Computer Science",
+      "institution": "University of Nebraska",
+      "note": "Details available upon request."
+    }
+  ],
+  "note_content": "Resume content is derived from Raymond_Page_Resume_3.docx. If the source resume file is present in the repository root, its content takes precedence over any entries above."
+}
