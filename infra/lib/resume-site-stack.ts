@@ -189,7 +189,19 @@ export class ResumeSiteStack extends cdk.Stack {
       clientIds: ['sts.amazonaws.com'],
     });
 
-    const githubRepo = 'afsting/developer-experience-concepts';
+    const githubOwner = 'afsting';
+    const githubRepoName = 'developer-experience-concepts';
+    const githubRepo = `${githubOwner}/${githubRepoName}`;
+
+    // GitHub decorates the `sub` claim with internal owner/repo IDs (e.g.
+    // `repo:owner@12345/repo@67890:pull_request`) whenever the org or repo
+    // has ever been renamed. AWS also requires the trust policy to condition
+    // on `sub` (or `job_workflow_ref`) with something more specific than a
+    // bare wildcard, so we match on `sub` using wildcards after the owner
+    // and repo name to tolerate the optional ID suffix, rather than an exact
+    // string match.
+    const githubSubPullRequest = `repo:${githubOwner}*/${githubRepoName}*:pull_request`;
+    const githubSubMainPush = `repo:${githubOwner}*/${githubRepoName}*:ref:refs/heads/main`;
 
     // CDK bootstrap roles (created once per account/region by `cdk bootstrap`)
     // that GitHub Actions assumes in order to run `cdk diff` / `cdk deploy`.
@@ -209,7 +221,7 @@ export class ResumeSiteStack extends cdk.Stack {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
         },
         StringLike: {
-          'token.actions.githubusercontent.com:sub': `repo:${githubRepo}:pull_request`,
+          'token.actions.githubusercontent.com:sub': githubSubPullRequest,
         },
       }),
       maxSessionDuration: cdk.Duration.hours(1),
@@ -233,7 +245,7 @@ export class ResumeSiteStack extends cdk.Stack {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
         },
         StringLike: {
-          'token.actions.githubusercontent.com:sub': `repo:${githubRepo}:ref:refs/heads/main`,
+          'token.actions.githubusercontent.com:sub': githubSubMainPush,
         },
       }),
       maxSessionDuration: cdk.Duration.hours(1),
