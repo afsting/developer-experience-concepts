@@ -53,9 +53,13 @@ status check, no force-pushes/deletions, enforced for admins too).
 The job description this repo is being built to demonstrate emphasizes four
 pillars: (1) golden paths / Internal Developer Platform, (2) engineering
 enablement + DORA/SEI metrics, (3) people leadership, (4) AI-assisted
-engineering. Feature ideas below are grouped accordingly. Priority order
-as decided 2026-08-24: **DORA metrics scorecard first**, then Bedrock AI
-chat, golden-path template repo, and DevSecOps CI hardening as time allows.
+engineering. Feature ideas below are grouped accordingly.
+
+**Build order (decided 2026-08-24, revised same day):** the email OTP
+access gate (feature 0) now goes **first**, since it changes the site's
+fundamental access model and every other feature should be built assuming
+it's already gated. After that: DORA metrics scorecard, Bedrock AI chat,
+golden-path template repo, DevSecOps CI hardening as time allows.
 
 ### 0. Email OTP access gate — makes the deployed site invite-only
 
@@ -99,9 +103,27 @@ since it changes the site's fundamental access model).
     hash, enforces a max-attempts lockout, and on success issues a signed
     session token (HMAC, short secret rotated via CDK deploy) as an
     `HttpOnly; Secure; SameSite=Lax` cookie scoped to the CloudFront domain.
-- Allowlist management: a small DynamoDB table maintained manually (console
-  or a tiny CLI/script) — not self-service signup. You explicitly add each
-  interviewer's email (or the whole company domain) before sharing the link.
+- Allowlist management: **admin UI**, not manual CLI/console edits. A
+  small `/admin.html` page (linked nowhere public, only reachable by an
+  admin session) lets you list/add/remove allowlist entries (exact emails
+  or domain suffixes) through authenticated endpoints:
+  - `GET /auth/admin/allowlist`, `POST /auth/admin/allowlist`,
+    `DELETE /auth/admin/allowlist/{id}` — all require the caller's session
+    to carry an `admin: true` claim, checked server-side in each Lambda
+    (never trust a client-supplied flag).
+  - Admin status lives in the same DynamoDB allowlist table as a boolean
+    attribute on your own entry (seeded once, manually, at deploy time —
+    e.g. via a CDK custom resource or a one-time `put-item` for your own
+    email only, so there's still a bootstrap step but it's a single row,
+    not ongoing allowlist maintenance). Every other entry is manageable
+    through the admin UI from then on.
+  - `verify-code` copies the `admin` flag from the allowlist record into
+    the signed session token at login time, so the CloudFront Function /
+    Lambda authorizer can check it without extra DB lookups per request.
+  - Non-admin sessions get a 403 (not a redirect/leak) from `/auth/admin/*`
+    and the `/admin.html` page itself renders nothing useful without a
+    valid admin session (checked client-side for UX, enforced server-side
+    for security).
 
 **Security requirements:**
 
@@ -111,7 +133,10 @@ since it changes the site's fundamental access model).
 - [ ] Anti-enumeration: `request-code` responses must not reveal whether an
       email was actually allowlisted.
 - [ ] Session cookie must be `HttpOnly`, `Secure`, `SameSite=Lax`, with a
-      reasonable expiry (e.g. a few days) — not indefinite.
+      **14-day expiry** (decided 2026-08-24) — not indefinite.
+- [ ] Admin-only endpoints/pages (`/auth/admin/*`, `/admin.html`) must
+      re-check the `admin` claim server-side on every request — a
+      client-side check is UX only, never the actual gate.
 - [ ] Lambda execution roles scoped tightly: `request-code` Lambda needs
       SES send + DynamoDB read/write on only its table; `verify-code`
       Lambda needs DynamoDB read/write on only its table. Neither shares a
@@ -128,14 +153,20 @@ since it changes the site's fundamental access model).
       scale should be near-zero, but add to the existing AWS Budgets
       nice-to-have below rather than assuming.
 
-**Open questions to resolve before implementation:**
+**Resolved decisions (2026-08-24):**
 
-- Exact allowlist seeding process — manual DynamoDB `put-item` via CLI is
-  simplest to start; a tiny admin script could be added later if needed.
-- Session duration (how long should one verified visitor stay logged in?).
-- Whether the Bedrock chat feature (below) should sit behind this same
-  gate (likely yes — simplifies its own security posture considerably,
-  since it would no longer be reachable by anonymous public traffic).
+- Build order: this feature ships **before** the DORA scorecard.
+- Session duration: **14 days**.
+- Allowlist management: **admin UI** (`/admin.html` + `/auth/admin/*`),
+  bootstrapped by a single manually-seeded admin row for your own email —
+  see architecture above.
+- The Bedrock chat feature (below) will sit behind this same gate once
+  both exist — simplifies its security posture considerably, since it's
+  no longer reachable by anonymous public traffic.
+
+**Remaining open question:** none blocking — ready to move to
+implementation planning (CDK constructs, Lambda handlers, login/admin
+pages) when picked up.
 
 ### 1. DORA metrics / SEI scorecard — NEXT UP
 
