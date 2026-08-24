@@ -177,6 +177,83 @@ export class ResumeSiteStack extends cdk.Stack {
     this.distributionDomainName = distribution.distributionDomainName;
 
     // ----------------------------------------------------------------
+    // GitHub Actions OIDC — lets GitHub Actions assume short-lived AWS
+    // roles instead of storing long-lived access keys as secrets.
+    // The OIDC provider is account-wide (only one is allowed per AWS
+    // account for a given issuer URL), so future repos deployed into
+    // this account can reuse it by importing the same provider ARN
+    // instead of creating a new one.
+    // ----------------------------------------------------------------
+    const githubOidcProvider = new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
+      url: 'https://token.actions.githubusercontent.com',
+      clientIds: ['sts.amazonaws.com'],
+    });
+
+    const githubRepo = 'afsting/developer-experience-concepts';
+
+    // CDK bootstrap roles (created once per account/region by `cdk bootstrap`)
+    // that GitHub Actions assumes in order to run `cdk diff` / `cdk deploy`.
+    const cdkQualifier = 'hnb659fds'; // default CDK bootstrap qualifier
+    const cdkDeployRoleArn = `arn:aws:iam::${this.account}:role/cdk-${cdkQualifier}-deploy-role-${this.account}-${this.region}`;
+    const cdkFilePublishingRoleArn = `arn:aws:iam::${this.account}:role/cdk-${cdkQualifier}-file-publishing-role-${this.account}-${this.region}`;
+    const cdkLookupRoleArn = `arn:aws:iam::${this.account}:role/cdk-${cdkQualifier}-lookup-role-${this.account}-${this.region}`;
+
+    // Read-only role for the CDK Diff workflow (runs on pull_request from
+    // this repo). Can only assume the lookup/deploy roles to read stack
+    // state — no write access to the site bucket or CloudFront.
+    const githubDiffRole = new iam.Role(this, 'GitHubActionsDiffRole', {
+      roleName: 'github-actions-resume-site-diff',
+      description: 'Read-only role assumed by GitHub Actions to run `cdk diff` on pull requests',
+      assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
+        StringEquals: {
+          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+        },
+        StringLike: {
+          'token.actions.githubusercontent.com:sub': `repo:${githubRepo}:pull_request`,
+        },
+      }),
+      maxSessionDuration: cdk.Duration.hours(1),
+    });
+
+    githubDiffRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'AssumeCdkBootstrapRoles',
+      actions: ['sts:AssumeRole'],
+      resources: [cdkDeployRoleArn, cdkLookupRoleArn],
+    }));
+
+    // Deploy role for the Deploy workflow (runs on push to main only).
+    // Can assume the CDK bootstrap roles needed to deploy, plus write
+    // directly to the site bucket and invalidate CloudFront (used by the
+    // `aws s3 sync` / `aws cloudfront create-invalidation` steps).
+    const githubDeployRole = new iam.Role(this, 'GitHubActionsDeployRole', {
+      roleName: 'github-actions-resume-site-deploy',
+      description: 'Role assumed by GitHub Actions to deploy the resume site on push to main',
+      assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
+        StringEquals: {
+          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+        },
+        StringLike: {
+          'token.actions.githubusercontent.com:sub': `repo:${githubRepo}:ref:refs/heads/main`,
+        },
+      }),
+      maxSessionDuration: cdk.Duration.hours(1),
+    });
+
+    githubDeployRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'AssumeCdkBootstrapRoles',
+      actions: ['sts:AssumeRole'],
+      resources: [cdkDeployRoleArn, cdkFilePublishingRoleArn, cdkLookupRoleArn],
+    }));
+
+    siteBucket.grantReadWrite(githubDeployRole);
+
+    githubDeployRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'InvalidateCloudFrontCache',
+      actions: ['cloudfront:CreateInvalidation'],
+      resources: [`arn:aws:cloudfront::${this.account}:distribution/${distribution.distributionId}`],
+    }));
+
+    // ----------------------------------------------------------------
     // Stack outputs
     // ----------------------------------------------------------------
     new cdk.CfnOutput(this, 'BucketName', {
@@ -195,6 +272,18 @@ export class ResumeSiteStack extends cdk.Stack {
       value: distribution.distributionDomainName,
       description: 'CloudFront domain name for the résumé site',
       exportName: `${this.stackName}-DistributionDomainName`,
+    });
+
+    new cdk.CfnOutput(this, 'GitHubActionsDiffRoleArn', {
+      value: githubDiffRole.roleArn,
+      description: 'Set as the AWS_CDK_DIFF_ROLE_ARN secret in the GitHub repo',
+      exportName: `${this.stackName}-GitHubActionsDiffRoleArn`,
+    });
+
+    new cdk.CfnOutput(this, 'GitHubActionsDeployRoleArn', {
+      value: githubDeployRole.roleArn,
+      description: 'Set as the AWS_DEPLOY_ROLE_ARN secret in the GitHub repo',
+      exportName: `${this.stackName}-GitHubActionsDeployRoleArn`,
     });
   }
 }
