@@ -53,6 +53,13 @@ site/                       Static site, no build tooling required to view
 - Verify actual OIDC claims via CloudTrail `lookup-events` on
   `AssumeRoleWithWebIdentity` if a trust policy mismatch is suspected —
   `userIdentity.principalId` shows the exact `sub` GitHub sent.
+- A job's `sub` claim suffix depends on how it's triggered: plain
+  `pull_request` → `:pull_request`; push to a branch → `:ref:refs/heads/<branch>`;
+  **but** if the job sets `environment: <name>` (as `deploy.yml`'s `deploy`
+  job does, `environment: production`), the suffix becomes
+  `:environment:<name>` instead — the ref is not part of `sub` at all in
+  that case. Check the actual CloudTrail event before assuming which form
+  applies.
 
 ## `actions/github-script` steps — avoid template-literal injection
 
@@ -61,6 +68,24 @@ literal like `` `${{ steps.x.outputs.y }}` ``. If that output contains
 backticks or `${...}` (which `cdk diff` output regularly does), it breaks
 the script syntax and is also an injection risk. Pass the value through
 `env:` on the step and read it via `process.env.VAR_NAME` instead.
+
+## Branch protection on `main`
+
+- `main` requires the `CDK Infrastructure Diff` status check (from
+  `cdk-diff.yml`) to pass, blocks force-pushes/deletions, and
+  `enforce_admins` is on — even the repo owner must go through a PR.
+- Because that check is *required*, `cdk-diff.yml` intentionally has **no**
+  `paths:` filter — it triggers on every PR and always reports a status,
+  even for PRs that don't touch `infra/` (e.g. docs-only changes). It gates
+  the actual `cdk diff` work internally via a git-diff-based step
+  (`Check for infra changes`), not via the workflow trigger. If you add a
+  `paths:` filter back, non-infra PRs will hang forever waiting on a status
+  that never gets reported and can never be merged.
+- Branch protection with required status checks / enforce-admins requires
+  the repo to be **public** on GitHub Free, or GitHub Pro for a private
+  repo. This repo is public partly for that reason; reuse/scraping
+  concerns are addressed via an explicit `LICENSE` (all rights reserved)
+  instead of going private.
 
 ## Local dev commands
 
