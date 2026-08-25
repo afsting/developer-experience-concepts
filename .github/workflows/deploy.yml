@@ -49,6 +49,10 @@ jobs:
 
       - name: CDK deploy
         working-directory: infra
+        env:
+          OTP_ADMIN_EMAIL: ${{ secrets.OTP_ADMIN_EMAIL }}
+          OTP_SES_FROM_ADDRESS: ${{ secrets.OTP_SES_FROM_ADDRESS }}
+          OTP_HMAC_SECRET: ${{ secrets.OTP_HMAC_SECRET }}
         run: npx cdk deploy --require-approval never --outputs-file cdk-outputs.json
 
       - name: Extract CDK outputs

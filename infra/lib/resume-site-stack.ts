@@ -1,8 +1,16 @@
+import * as path from 'path';
+import * as crypto from 'crypto';
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
+import * as ses from 'aws-cdk-lib/aws-ses';
+import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 
 /**
@@ -20,12 +28,45 @@ import { Construct } from 'constructs';
  * 3. Add a Route 53 ARecord pointing at the distribution.
  * 4. Run `cdk deploy`.
  */
+export interface ResumeSiteStackProps extends cdk.StackProps {
+  /**
+   * Email seeded as the bootstrap admin for the OTP access gate's
+   * /admin.html allowlist UI. Required for a real deploy — supplied by
+   * bin/resume-site.ts from the OTP_ADMIN_EMAIL repo secret, which throws
+   * if it's missing. Falls back to a non-functional placeholder only for
+   * local/test synth (e.g. the jest suite constructs this stack directly
+   * with no props).
+   */
+  readonly otpAdminEmail?: string;
+
+  /**
+   * SES identity OTP verification emails are sent from. Must be verified
+   * in SES (this stack provisions the identity, but AWS still emails a
+   * confirmation link that a human must click) before sends succeed.
+   */
+  readonly otpSesFromAddress?: string;
+
+  /**
+   * Hex-encoded HMAC secret used to sign/verify OTP-gate session cookies,
+   * shared between the CloudFront Function and the verify-code/admin
+   * Lambdas via the CloudFront KeyValueStore. Must stay stable across
+   * deploys — regenerating it invalidates every active session. Supplied
+   * via the OTP_HMAC_SECRET repo secret; falls back to a random per-synth
+   * value only for local/test synth.
+   */
+  readonly otpHmacSecret?: string;
+}
+
 export class ResumeSiteStack extends cdk.Stack {
   /** The CloudFront distribution domain name, output for reference. */
   public readonly distributionDomainName: string;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: ResumeSiteStackProps) {
     super(scope, id, props);
+
+    const otpAdminEmail = props?.otpAdminEmail ?? 'admin@example.invalid';
+    const otpSesFromAddress = props?.otpSesFromAddress ?? 'admin@example.invalid';
+    const otpHmacSecret = props?.otpHmacSecret ?? crypto.randomBytes(32).toString('hex');
 
     // ----------------------------------------------------------------
     // S3 Bucket — private, all public access blocked
@@ -81,18 +122,247 @@ export class ResumeSiteStack extends cdk.Stack {
     });
 
     // ----------------------------------------------------------------
-    // CloudFront Distribution
+    // Email OTP access gate
+    //
+    // Makes the deployed site invite-only: every request to the default
+    // behavior is checked by a CloudFront Function for a signed session
+    // cookie (fails closed — any error redirects to /login.html). A
+    // session is only issued after verifying a one-time code sent to an
+    // allowlisted email. Full design rationale in task.md.
     // ----------------------------------------------------------------
+
+    // Allowlist: pk="EMAIL"/sk=<email> for exact addresses, pk="DOMAIN"/
+    // sk=<domain> for suffix matches (e.g. "mutualofomaha.com" allows any
+    // *@mutualofomaha.com address). Managed via /admin.html after the
+    // bootstrap admin entry below is seeded.
+    const allowlistTable = new dynamodb.Table(this, 'AllowlistTable', {
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // One-time codes, keyed by email. The `ttl` attribute auto-expires
+    // codes via DynamoDB TTL; requestCode/verifyCode Lambdas also enforce
+    // the 10-minute expiry and a max-attempts lockout independently.
+    const otpTable = new dynamodb.Table(this, 'OtpTable', {
+      partitionKey: { name: 'email', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // SES identity OTP emails are sent from. Deploying this triggers AWS
+    // to email a confirmation link to otpSesFromAddress — it must be
+    // clicked before sends succeed. SES starts in sandbox mode, which also
+    // requires each *recipient* to be individually verified until
+    // production access is requested (see task.md — decided to verify
+    // recipients manually rather than request production access).
+    new ses.EmailIdentity(this, 'OtpSesFromIdentity', {
+      identity: ses.Identity.email(otpSesFromAddress),
+    });
+
+    // CloudFront KeyValueStore holding the HMAC secret used to sign/verify
+    // session cookies — read by the CloudFront Function via cf.kvs() and
+    // by the verify-code/admin Lambdas via the KVS data plane API, so
+    // there's a single source of truth for the secret at the edge and in
+    // Lambda. Seeded by the KvsSeed custom resource below (not
+    // ImportSource — its update semantics on an existing store aren't
+    // guaranteed safe for a secret that must survive redeploys).
+    const sessionKvs = new cloudfront.KeyValueStore(this, 'SessionKvs');
+
+    const kvsSeedFn = new lambdaNode.NodejsFunction(this, 'KvsSeedFunction', {
+      entry: path.join(__dirname, '../lambda/kvsSeed/index.ts'),
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.minutes(2),
+      bundling: { externalModules: [] },
+    });
+    kvsSeedFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront-keyvaluestore:DescribeKeyValueStore', 'cloudfront-keyvaluestore:PutKey'],
+      resources: [sessionKvs.keyValueStoreArn],
+    }));
+
+    const kvsSeedProvider = new cr.Provider(this, 'KvsSeedProvider', {
+      onEventHandler: kvsSeedFn,
+    });
+
+    new cdk.CustomResource(this, 'KvsSeed', {
+      serviceToken: kvsSeedProvider.serviceToken,
+      properties: {
+        kvsArn: sessionKvs.keyValueStoreArn,
+        secretValue: otpHmacSecret,
+      },
+    });
+
+    // Bootstrap admin allowlist entry — reasserted on every deploy
+    // (Create *and* Update), so redeploying always restores your own
+    // admin access even if it were ever accidentally removed via
+    // /admin.html. Every other entry is managed exclusively through the
+    // admin UI from here on.
+    const bootstrapAdminItem = {
+      TableName: allowlistTable.tableName,
+      Item: {
+        pk: { S: 'EMAIL' },
+        sk: { S: otpAdminEmail },
+        admin: { BOOL: true },
+        createdAt: { N: `${Math.floor(Date.now() / 1000)}` },
+      },
+    };
+    new cr.AwsCustomResource(this, 'SeedAdminAllowlistEntry', {
+      onCreate: {
+        service: 'DynamoDB',
+        action: 'putItem',
+        parameters: bootstrapAdminItem,
+        physicalResourceId: cr.PhysicalResourceId.of(`${this.stackName}-bootstrap-admin`),
+      },
+      onUpdate: {
+        service: 'DynamoDB',
+        action: 'putItem',
+        parameters: bootstrapAdminItem,
+        physicalResourceId: cr.PhysicalResourceId.of(`${this.stackName}-bootstrap-admin`),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+        resources: [allowlistTable.tableArn],
+      }),
+    });
+
+    // ---- API Lambdas behind /auth/* ----
+    const requestCodeFn = new lambdaNode.NodejsFunction(this, 'RequestCodeFunction', {
+      entry: path.join(__dirname, '../lambda/requestCode/index.ts'),
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        OTP_TABLE_NAME: otpTable.tableName,
+        ALLOWLIST_TABLE_NAME: allowlistTable.tableName,
+        SES_FROM_ADDRESS: otpSesFromAddress,
+      },
+      bundling: { externalModules: [] },
+    });
+    otpTable.grantReadWriteData(requestCodeFn);
+    allowlistTable.grantReadData(requestCodeFn);
+    requestCodeFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['ses:SendEmail'],
+      resources: [`arn:aws:ses:${this.region}:${this.account}:identity/${otpSesFromAddress}`],
+    }));
+
+    const verifyCodeFn = new lambdaNode.NodejsFunction(this, 'VerifyCodeFunction', {
+      entry: path.join(__dirname, '../lambda/verifyCode/index.ts'),
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        OTP_TABLE_NAME: otpTable.tableName,
+        ALLOWLIST_TABLE_NAME: allowlistTable.tableName,
+        KVS_ARN: sessionKvs.keyValueStoreArn,
+      },
+      bundling: { externalModules: [] },
+    });
+    otpTable.grantReadWriteData(verifyCodeFn);
+    allowlistTable.grantReadData(verifyCodeFn);
+    verifyCodeFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront-keyvaluestore:GetKey'],
+      resources: [sessionKvs.keyValueStoreArn],
+    }));
+
+    const adminFn = new lambdaNode.NodejsFunction(this, 'AdminAllowlistFunction', {
+      entry: path.join(__dirname, '../lambda/admin/index.ts'),
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        ALLOWLIST_TABLE_NAME: allowlistTable.tableName,
+        KVS_ARN: sessionKvs.keyValueStoreArn,
+      },
+      bundling: { externalModules: [] },
+    });
+    allowlistTable.grantReadWriteData(adminFn);
+    adminFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront-keyvaluestore:GetKey'],
+      resources: [sessionKvs.keyValueStoreArn],
+    }));
+
+    // ---- HTTP API (API Gateway v2) fronting the three Lambdas ----
+    // Built from L1 (Cfn*) constructs rather than the L2 HttpApi, which
+    // still lives in a separate alpha module version-locked to a specific
+    // aws-cdk-lib release — avoided here to keep the dependency surface
+    // stable across routine `npm update`s.
+    const authApi = new apigwv2.CfnApi(this, 'AuthApi', {
+      name: `${this.stackName}-auth-api`,
+      protocolType: 'HTTP',
+    });
+
+    new apigwv2.CfnStage(this, 'AuthApiDefaultStage', {
+      apiId: authApi.ref,
+      stageName: '$default',
+      autoDeploy: true,
+      defaultRouteSettings: {
+        // Cheap baseline abuse mitigation for a v1: a stage-level request
+        // rate cap. Not per-IP/per-user — see task.md for the known
+        // limitation and the WAF/usage-plan alternative considered.
+        throttlingRateLimit: 10,
+        throttlingBurstLimit: 20,
+      },
+    });
+
+    const addAuthRoute = (
+      routeId: string,
+      routeKey: string,
+      fn: lambdaNode.NodejsFunction,
+      permissionPath: string,
+    ): void => {
+      const integration = new apigwv2.CfnIntegration(this, `${routeId}Integration`, {
+        apiId: authApi.ref,
+        integrationType: 'AWS_PROXY',
+        integrationUri: fn.functionArn,
+        payloadFormatVersion: '2.0',
+      });
+      new apigwv2.CfnRoute(this, `${routeId}Route`, {
+        apiId: authApi.ref,
+        routeKey,
+        target: `integrations/${integration.ref}`,
+      });
+      fn.addPermission(`${routeId}InvokePermission`, {
+        principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+        sourceArn: `arn:aws:execute-api:${this.region}:${this.account}:${authApi.ref}/*/*${permissionPath}`,
+      });
+    };
+
+    addAuthRoute('RequestCode', 'POST /auth/request-code', requestCodeFn, '/auth/request-code');
+    addAuthRoute('VerifyCode', 'POST /auth/verify-code', verifyCodeFn, '/auth/verify-code');
+    addAuthRoute('AdminAllowlistGet', 'GET /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
+    addAuthRoute('AdminAllowlistPost', 'POST /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
+    addAuthRoute('AdminAllowlistDelete', 'DELETE /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
+
+    const authApiDomain = `${authApi.ref}.execute-api.${this.region}.${this.urlSuffix}`;
+
+    // CloudFront Function gating the default (static site) behavior.
+    // /login.html is exempted in the function code itself — it's the one
+    // page that must stay reachable without a session.
+    const sessionCheckFunction = new cloudfront.Function(this, 'SessionCheckFunction', {
+      code: cloudfront.FunctionCode.fromFile({
+        filePath: path.join(__dirname, '../cloudfront-functions/session-check.js'),
+      }),
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+      keyValueStore: sessionKvs,
+    });
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: 'Raymond Page résumé site',
 
-      // Default behavior — HTML (short cache)
+      // Default behavior — HTML (short cache), gated by the session-check
+      // CloudFront Function.
       defaultBehavior: {
         origin: new origins.S3Origin(siteBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: htmlCachePolicy,
         compress: true,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        functionAssociations: [{
+          function: sessionCheckFunction,
+          eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+        }],
       },
 
       // Static assets — long cache
@@ -174,7 +444,36 @@ export class ResumeSiteStack extends cdk.Stack {
       }),
     );
 
+    // ----------------------------------------------------------------
+    // /auth/* — proxies to the HTTP API above. Same-origin from the
+    // browser's perspective (same distribution/domain as the static
+    // site), so no CORS configuration is needed anywhere. No CloudFront
+    // Function attached here — these routes must stay reachable
+    // pre-authentication.
+    // ----------------------------------------------------------------
+    distribution.addBehavior('/auth/*', new origins.HttpOrigin(authApiDomain), {
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+    });
+
     this.distributionDomainName = distribution.distributionDomainName;
+
+    new cdk.CfnOutput(this, 'AllowlistTableName', {
+      value: allowlistTable.tableName,
+      description: 'DynamoDB table backing the OTP access gate allowlist',
+    });
+
+    new cdk.CfnOutput(this, 'OtpBootstrapAdminEmail', {
+      value: otpAdminEmail,
+      description: 'Email seeded as the bootstrap admin for /admin.html',
+    });
+
+    new cdk.CfnOutput(this, 'OtpSesFromAddressOutput', {
+      value: otpSesFromAddress,
+      description: 'SES identity that must be verified (check its inbox) before OTP emails will send',
+    });
 
     // ----------------------------------------------------------------
     // GitHub Actions OIDC — lets GitHub Actions assume short-lived AWS

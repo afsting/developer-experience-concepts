@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Allowlist admin — Raymond Page</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* Page-specific styles kept inline since this isn't part of the
+       résumé content-rendering pipeline (build.js / content.json). */
+    main { max-width: var(--max-width); margin: 0 auto; padding: var(--space-lg) var(--space-md); }
+    table { width: 100%; border-collapse: collapse; margin-top: var(--space-md); }
+    th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--color-border); font-size: 0.9rem; }
+    th { color: var(--color-text-muted); font-weight: 600; }
+    form.add-entry { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; margin-top: var(--space-md); }
+    form.add-entry label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
+    form.add-entry input, form.add-entry select {
+      padding: 0.5rem; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 0.9rem;
+    }
+    button { padding: 0.5rem 1rem; border-radius: var(--radius); border: none; background: var(--color-accent); color: #fff; cursor: pointer; }
+    button:hover { background: var(--color-accent-hover); }
+    button.danger { background: none; color: var(--color-error, #a3262c); border: 1px solid currentColor; padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+    .status { font-size: 0.85rem; margin-top: 0.75rem; min-height: 1.2em; }
+    .status.error { color: #a3262c; }
+    .status.ok { color: #1a4e8a; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Allowlist admin</h1>
+    <p>Manage which emails and domains can request a verification code. Changes take effect immediately.</p>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <table>
+      <thead>
+        <tr><th>Type</th><th>Value</th><th>Admin</th><th></th></tr>
+      </thead>
+      <tbody id="entries-body">
+        <tr><td colspan="4">Loading…</td></tr>
+      </tbody>
+    </table>
+
+    <form class="add-entry" id="add-form">
+      <div>
+        <label for="type">Type</label>
+        <select id="type" name="type">
+          <option value="email">Email</option>
+          <option value="domain">Domain</option>
+        </select>
+      </div>
+      <div>
+        <label for="value">Value</label>
+        <input type="text" id="value" name="value" placeholder="name@example.com or example.com" required />
+      </div>
+      <div>
+        <label for="admin"><input type="checkbox" id="admin" name="admin" /> Admin</label>
+      </div>
+      <button type="submit">Add</button>
+    </form>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var entriesBody = document.getElementById('entries-body');
+      var addForm = document.getElementById('add-form');
+      var statusEl = document.getElementById('status');
+
+      function setStatus(text, kind) {
+        statusEl.textContent = text;
+        statusEl.className = 'status ' + (kind || '');
+      }
+
+      function esc(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function renderEntries(entries) {
+        if (!entries.length) {
+          entriesBody.innerHTML = '<tr><td colspan="4">No entries yet.</td></tr>';
+          return;
+        }
+        entriesBody.innerHTML = entries.map(function (entry) {
+          return '<tr>' +
+            '<td>' + esc(entry.type) + '</td>' +
+            '<td>' + esc(entry.value) + '</td>' +
+            '<td>' + (entry.admin ? 'Yes' : '') + '</td>' +
+            '<td><button type="button" class="danger" data-type="' + esc(entry.type) + '" data-value="' + esc(entry.value) + '">Remove</button></td>' +
+            '</tr>';
+        }).join('');
+      }
+
+      function loadEntries() {
+        fetch('/auth/admin/allowlist', { credentials: 'same-origin' })
+          .then(function (response) {
+            if (response.status === 403) {
+              entriesBody.innerHTML = '<tr><td colspan="4">You do not have admin access.</td></tr>';
+              addForm.hidden = true;
+              throw new Error('forbidden');
+            }
+            return response.json();
+          })
+          .then(function (data) {
+            renderEntries(data.entries || []);
+          })
+          .catch(function (err) {
+            if (err.message !== 'forbidden') {
+              setStatus('Failed to load allowlist.', 'error');
+            }
+          });
+      }
+
+      entriesBody.addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-type]');
+        if (!button) return;
+        var type = button.getAttribute('data-type');
+        var value = button.getAttribute('data-value');
+        if (!window.confirm('Remove ' + type + ' "' + value + '" from the allowlist?')) return;
+
+        fetch('/auth/admin/allowlist?type=' + encodeURIComponent(type) + '&value=' + encodeURIComponent(value), {
+          method: 'DELETE',
+          credentials: 'same-origin',
+        })
+          .then(function (response) {
+            if (!response.ok) throw new Error('failed');
+            setStatus('Removed.', 'ok');
+            loadEntries();
+          })
+          .catch(function () {
+            setStatus('Failed to remove entry.', 'error');
+          });
+      });
+
+      addForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var type = document.getElementById('type').value;
+        var value = document.getElementById('value').value.trim();
+        var admin = document.getElementById('admin').checked;
+
+        fetch('/auth/admin/allowlist', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ type: type, value: value, admin: admin }),
+        })
+          .then(function (response) {
+            if (!response.ok) throw new Error('failed');
+            addForm.reset();
+            setStatus('Added.', 'ok');
+            loadEntries();
+          })
+          .catch(function () {
+            setStatus('Failed to add entry.', 'error');
+          });
+      });
+
+      loadEntries();
+    })();
+  </script>
+</body>
+</html>
