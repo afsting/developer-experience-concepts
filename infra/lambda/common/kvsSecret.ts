@@ -1,3 +1,9 @@
+// CloudFront KeyValueStore requests are signed with SigV4A (multi-region).
+// The AWS SDK v3 does not ship a SigV4A implementation by default — it must
+// be registered explicitly via this side-effect import (there's no native
+// CRT binary available in the Lambda runtime, so the pure-JS package is
+// used instead of @aws-sdk/signature-v4-crt).
+import '@aws-sdk/signature-v4a';
 import {
   CloudFrontKeyValueStoreClient,
   GetKeyCommand,
