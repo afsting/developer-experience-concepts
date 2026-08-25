@@ -62,6 +62,10 @@ jobs:
         if: steps.changes.outputs.run == 'true'
         id: cdk-diff
         working-directory: infra
+        env:
+          OTP_ADMIN_EMAIL: ${{ secrets.OTP_ADMIN_EMAIL }}
+          OTP_SES_FROM_ADDRESS: ${{ secrets.OTP_SES_FROM_ADDRESS }}
+          OTP_HMAC_SECRET: ${{ secrets.OTP_HMAC_SECRET }}
         run: |
           # Capture diff output; exit 0 even if there are changes (exit 1 = changes, 2 = error)
           DIFF_OUTPUT=$(npx cdk diff 2>&1 || true)

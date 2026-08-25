@@ -168,6 +168,50 @@ since it changes the site's fundamental access model).
 implementation planning (CDK constructs, Lambda handlers, login/admin
 pages) when picked up.
 
+**Implementation status (2026-08-24, in progress on branch
+`feature/email-otp-gate`, nothing committed yet — all working-tree
+edits):**
+
+- [x] Shared Lambda helpers (`infra/lambda/common/`: dynamo, session
+      sign/verify, KVS secret fetch, allowlist check).
+- [x] Route handlers: `infra/lambda/requestCode`, `verifyCode`, `admin`.
+- [x] `infra/lambda/kvsSeed` custom-resource Lambda (Describe→PutKey with
+      ETag/retry).
+- [x] `infra/cloudfront-functions/session-check.js` (fails closed, exempts
+      `/login.html`).
+- [x] `site/login.html` (self-contained) and `site/admin.html`.
+- [x] `infra/lib/resume-site-stack.ts` fully wired: DynamoDB tables, SES
+      identity, CloudFront KeyValueStore + seed, bootstrap-admin custom
+      resource, 3 Lambdas + IAM grants, L1 API Gateway v2, CloudFront
+      Function + `/auth/*` behavior, new outputs.
+- [x] `infra/bin/resume-site.ts` reads `OTP_ADMIN_EMAIL` / `OTP_SES_FROM_ADDRESS` /
+      `OTP_HMAC_SECRET` env vars (fails fast via `requireEnv()` if missing)
+      and passes them as stack props.
+- [x] `npm install` + `tsc`/`jest`/`cdk synth` validation pass (16/16 tests
+      passed; synth succeeded with real env vars, confirmed all expected
+      resources in the synthesized template).
+- [x] Wired the 3 new secrets into `.github/workflows/deploy.yml` and
+      `cdk-diff.yml` (env vars on the `cdk deploy`/`cdk diff` steps only —
+      `npm test` doesn't need them since jest constructs the stack
+      directly, bypassing `bin/resume-site.ts`).
+- [x] Created the 3 GitHub repo secrets: `OTP_ADMIN_EMAIL` and
+      `OTP_SES_FROM_ADDRESS` both `usafsting@gmail.com` (confirmed with
+      user), `OTP_HMAC_SECRET` generated via Node `crypto.randomBytes(32)`.
+- [ ] Commit, push, open PR, get CI green, merge.
+- [ ] Manual post-deploy verification: click SES sender verification
+      email, verify the admin recipient too (SES sandbox mode requires
+      every recipient individually verified), walk the login flow at the
+      deployed URL, confirm `/admin.html` allowlist CRUD works.
+- [ ] Mark this section shipped + note the SES-sandbox limitation in
+      README once live.
+
+Full technical detail (exact API shapes, CDK construct choices, security
+rationale) is preserved in repo memory at
+`infra/.copilot-memory` equivalent — see assistant's repo-scoped memory
+file `otp-gate-implementation-status.md` if picked up by an AI assistant;
+otherwise this checklist plus the code comments in the files above should
+be enough to resume manually.
+
 ### 1. DORA metrics / SEI scorecard — NEXT UP
 
 JD explicitly calls out "own the DORA metrics and Software Engineering
