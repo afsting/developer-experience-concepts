@@ -26,10 +26,11 @@ status check, no force-pushes/deletions, enforced for admins too).
 
 ## Near-term follow-ups
 
-- [ ] Node 20 deprecation warnings showing up in Actions logs
-      (`actions/setup-node` pinned to `node-version: '20'` in both
-      workflows, and CDK CLI itself warns about Node 20 EOL). Bump to
-      Node 22 in both workflow files and re-verify.
+- [x] Node 20 deprecation warnings showing up in Actions logs — bumped
+      `node-version` to `'24'` (latest LTS) in both `deploy.yml` and
+      `cdk-diff.yml`, and `@types/node` to `^24.0.0` (PR #7, merged
+      2026-08-25). Confirmed via job log: CDK CLI now reports
+      `node v24.19.0`, original supported-versions warning gone.
 - [ ] Un-pin / upgrade `aws-cdk` (currently 2.152.0; CLI notices suggest
       2.1138.0+) — check for breaking changes in `cdk.json` feature flags
       before bumping.
@@ -197,11 +198,43 @@ edits):**
 - [x] Created the 3 GitHub repo secrets: `OTP_ADMIN_EMAIL` and
       `OTP_SES_FROM_ADDRESS` both `usafsting@gmail.com` (confirmed with
       user), `OTP_HMAC_SECRET` generated via Node `crypto.randomBytes(32)`.
-- [ ] Commit, push, open PR, get CI green, merge.
-- [ ] Manual post-deploy verification: click SES sender verification
-      email, verify the admin recipient too (SES sandbox mode requires
-      every recipient individually verified), walk the login flow at the
-      deployed URL, confirm `/admin.html` allowlist CRUD works.
+- [x] Commit, push, open PR (#4), get CI green, merge.
+- [x] Fixed two real bugs surfaced by the first live deploy (both shipped
+      as follow-up PRs, not part of the original feature branch):
+      - PR #5: jest picked up the compiled `dist/test/*.test.js` copy in
+        addition to source `test/*.test.ts` once `tsc` ran before
+        `npm test` in CI, and the compiled copy's `NodejsFunction` entry
+        paths didn't resolve under `dist/lambda/*`. Fixed via
+        `testPathIgnorePatterns` in `jest.config.json`.
+      - PR #6: `@aws-sdk/client-cloudfront-keyvaluestore` signs with
+        SigV4A, which the AWS SDK v3 doesn't auto-load — required an
+        explicit side-effect import of `@aws-sdk/signature-v4a` in
+        `kvsSeed/index.ts` and `common/kvsSecret.ts`.
+      - PR #7: bumped CI Node.js version 20 → 24 (latest LTS) in both
+        workflows, ahead of Node 20's actions/runner deprecation.
+- [x] Live deploy confirmed fully successful end-to-end (all `deploy.yml`
+      steps green, including `CDK deploy`, S3 sync, CloudFront invalidation).
+      Site: `https://d3s3zqrhu1oidk.cloudfront.net`.
+- [x] Verified `usafsting@gmail.com` as the SES sender identity (clicked
+      the AWS verification email).
+- [ ] **SES production access request DENIED** (case `178769115200354`,
+      submitted via `aws sesv2 put-account-details --production-access-enabled`).
+      Account remains in SES **sandbox mode** — emails can only be sent to
+      individually-verified recipient addresses, not the full allowlist.
+      Denial reason not visible via the API or CLI (requires a paid AWS
+      Support plan to read the case detail); check the AWS root account's
+      email inbox for the decision notice if a resubmission is attempted.
+      **Accepted workaround for now**: before giving an interviewer the
+      site link, manually verify their email as an SES recipient:
+      `aws sesv2 create-email-identity --email-identity <their-email> --region us-east-1`
+      (sends them a one-click AWS verification email — same low-friction
+      pattern already used for the admin address). Domain-suffix allowlist
+      entries (e.g. `@mutualofomaha.com`) will NOT work under sandbox mode
+      no matter what — only exact, individually-verified addresses can
+      receive mail. This is a known v1 limitation, not a bug.
+- [ ] Manual post-deploy verification: walk the login flow at the deployed
+      URL end-to-end (request code → check email → verify code → session
+      cookie → `/admin.html` allowlist CRUD).
 - [ ] Mark this section shipped + note the SES-sandbox limitation in
       README once live.
 
