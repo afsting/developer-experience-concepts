@@ -10,6 +10,9 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as ses from 'aws-cdk-lib/aws-ses';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 
@@ -22,12 +25,12 @@ import { Construct } from 'constructs';
  *
  * Architecture decisions documented in site/how-it-was-built.html.
  *
- * To add a custom domain later (no stack rebuild required):
- * 1. Request an ACM certificate in us-east-1.
- * 2. Uncomment the `domainNames` and `certificate` props below.
- * 3. Add a Route 53 ARecord pointing at the distribution.
- * 4. Run `cdk deploy`.
+ * Custom domain: resume.pages-enterprise.com, served over the
+ * CloudFront distribution via an ACM certificate (DNS-validated) and
+ * Route 53 alias A/AAAA records, both provisioned in this stack against
+ * the pre-existing pages-enterprise.com hosted zone.
  */
+
 export interface ResumeSiteStackProps extends cdk.StackProps {
   /**
    * Email seeded as the bootstrap admin for the OTP access gate's
@@ -67,6 +70,22 @@ export class ResumeSiteStack extends cdk.Stack {
     const otpAdminEmail = props?.otpAdminEmail ?? 'admin@example.invalid';
     const otpSesFromAddress = props?.otpSesFromAddress ?? 'admin@example.invalid';
     const otpHmacSecret = props?.otpHmacSecret ?? crypto.randomBytes(32).toString('hex');
+
+    // ----------------------------------------------------------------
+    // Custom domain — resume.pages-enterprise.com
+    // Referenced by fixed attributes (not `fromLookup`) so synth doesn't
+    // need an explicit account/region context lookup.
+    // ----------------------------------------------------------------
+    const siteDomainName = 'resume.pages-enterprise.com';
+    const siteHostedZone = route53.PublicHostedZone.fromPublicHostedZoneAttributes(this, 'SiteHostedZone', {
+      zoneName: 'pages-enterprise.com',
+      hostedZoneId: 'Z09464661R0CYHRXA10JN',
+    });
+
+    const siteCertificate = new acm.Certificate(this, 'SiteCertificate', {
+      domainName: siteDomainName,
+      validation: acm.CertificateValidation.fromDns(siteHostedZone),
+    });
 
     // ----------------------------------------------------------------
     // S3 Bucket — private, all public access blocked
@@ -152,14 +171,20 @@ export class ResumeSiteStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // SES identity OTP emails are sent from. Deploying this triggers AWS
-    // to email a confirmation link to otpSesFromAddress — it must be
-    // clicked before sends succeed. SES starts in sandbox mode, which also
-    // requires each *recipient* to be individually verified until
-    // production access is requested (see task.md — decided to verify
-    // recipients manually rather than request production access).
+    // SES identity OTP emails are sent from. Verified at the *domain*
+    // level (pages-enterprise.com) rather than a single email address —
+    // CDK provisions the DKIM CNAME records directly in siteHostedZone, so
+    // there's no confirmation-link email to click, and any address at the
+    // domain (e.g. otpSesFromAddress) can send once DKIM propagates. This
+    // replaced the old per-address `ses.Identity.email(...)` identity,
+    // which relied on a personal Gmail sender and was hurting
+    // deliverability (no SPF/DKIM/DMARC alignment). SES still starts in
+    // sandbox mode, which requires each *recipient* to be individually
+    // verified until production access is requested (see task.md —
+    // decided to verify recipients manually rather than request
+    // production access).
     new ses.EmailIdentity(this, 'OtpSesFromIdentity', {
-      identity: ses.Identity.email(otpSesFromAddress),
+      identity: ses.Identity.publicHostedZone(siteHostedZone),
     });
 
     // CloudFront KeyValueStore holding the HMAC secret used to sign/verify
@@ -401,13 +426,8 @@ export class ResumeSiteStack extends cdk.Stack {
         },
       ],
 
-      // To add a custom domain, uncomment the following and
-      // supply an ACM certificate ARN (certificate must be in us-east-1):
-      //
-      // domainNames: ['resume.yourdomain.com'],
-      // certificate: acm.Certificate.fromCertificateArn(
-      //   this, 'Cert', 'arn:aws:acm:us-east-1:ACCOUNT:certificate/CERT-ID'
-      // ),
+      domainNames: [siteDomainName],
+      certificate: siteCertificate,
     });
 
     // ----------------------------------------------------------------
@@ -469,6 +489,25 @@ export class ResumeSiteStack extends cdk.Stack {
 
     this.distributionDomainName = distribution.distributionDomainName;
 
+    // Alias records pointing the custom domain at the CloudFront
+    // distribution (A for IPv4, AAAA for IPv6 — CloudFront distributions
+    // serve both by default).
+    const cloudFrontAliasTarget = route53.RecordTarget.fromAlias(
+      new route53Targets.CloudFrontTarget(distribution),
+    );
+
+    new route53.ARecord(this, 'SiteAliasRecordA', {
+      zone: siteHostedZone,
+      recordName: siteDomainName,
+      target: cloudFrontAliasTarget,
+    });
+
+    new route53.AaaaRecord(this, 'SiteAliasRecordAAAA', {
+      zone: siteHostedZone,
+      recordName: siteDomainName,
+      target: cloudFrontAliasTarget,
+    });
+
     new cdk.CfnOutput(this, 'AllowlistTableName', {
       value: allowlistTable.tableName,
       description: 'DynamoDB table backing the OTP access gate allowlist',
@@ -481,7 +520,13 @@ export class ResumeSiteStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'OtpSesFromAddressOutput', {
       value: otpSesFromAddress,
-      description: 'SES identity that must be verified (check its inbox) before OTP emails will send',
+      description: 'SES sender address, verified via the pages-enterprise.com domain identity (no confirmation email to click)',
+    });
+
+    new cdk.CfnOutput(this, 'SiteUrl', {
+      value: `https://${siteDomainName}`,
+      description: 'Custom domain URL for the résumé site',
+      exportName: `${this.stackName}-SiteUrl`,
     });
 
     // ----------------------------------------------------------------

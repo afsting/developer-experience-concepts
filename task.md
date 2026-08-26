@@ -368,9 +368,16 @@ that extend the existing pipeline:
 - [ ] Dependabot config for `infra/package.json` and GitHub Actions versions.
 - [ ] PR template referencing the CDK diff comment / review checklist.
 - [ ] Smoke-test step after deploy (curl the CloudFront URL, assert 200).
-- [ ] Optional: custom domain (steps already documented in
-      [resume-site-stack.ts](../infra/lib/resume-site-stack.ts) doc comment
-      and [README.md](../README.md)).
+- [x] Custom domain: `resume.pages-enterprise.com`, registered via Route 53.
+      ACM certificate (DNS-validated) + Route 53 alias A/AAAA records wired
+      into `infra/lib/resume-site-stack.ts`, referencing the pre-existing
+      hosted zone by fixed attributes (no `fromLookup`, so synth doesn't
+      need account/region context). SES switched from a single
+      `ses.Identity.email(...)` identity (personal Gmail sender, no
+      SPF/DKIM/DMARC alignment — likely cause of an earlier production
+      access denial) to a domain-verified `ses.Identity.publicHostedZone(...)`
+      identity, with `OTP_SES_FROM_ADDRESS` updated to
+      `noreply@pages-enterprise.com`.
 - [ ] Optional: cost/budget alarm via AWS Budgets, given the "< $1/month"
       claim in the README — would be a nice concrete demo of cost awareness.
 
