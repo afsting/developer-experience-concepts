@@ -580,6 +580,44 @@ export class ResumeSiteStack extends cdk.Stack {
       resources: [`arn:aws:cloudfront::${this.account}:distribution/${distribution.distributionId}`],
     }));
 
+    // Narrowly-scoped role for the weekly DORA-metrics-refresh workflow
+    // (.github/workflows/dora-metrics.yml, schedule + workflow_dispatch
+    // triggers only). Deliberately NOT the deploy role: this workflow
+    // only ever needs to overwrite one S3 object (site/dora-metrics.json)
+    // — it doesn't run `cdk deploy` and doesn't touch any other site
+    // file, so it gets its own least-privilege role rather than reusing
+    // githubDeployRole's full bucket read/write + CloudFront invalidation
+    // access. Written with Cache-Control: no-cache (like HTML), so no
+    // CloudFront invalidation permission is needed either — the object
+    // is always revalidated at the edge.
+    const githubSubScheduledOrDispatch = `repo:${githubOwner}*/${githubRepoName}*:ref:refs/heads/main`;
+
+    const githubMetricsRole = new iam.Role(this, 'GitHubActionsMetricsRole', {
+      roleName: 'github-actions-resume-site-metrics',
+      description: 'Role assumed by GitHub Actions to publish the DORA metrics scorecard JSON on a schedule',
+      assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
+        StringEquals: {
+          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+        },
+        StringLike: {
+          'token.actions.githubusercontent.com:sub': githubSubScheduledOrDispatch,
+        },
+      }),
+      maxSessionDuration: cdk.Duration.hours(1),
+    });
+
+    githubMetricsRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'PutDoraMetricsObjectOnly',
+      actions: ['s3:PutObject'],
+      resources: [siteBucket.arnForObjects('dora-metrics.json')],
+    }));
+
+    githubMetricsRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ReadStackOutputsForBucketName',
+      actions: ['cloudformation:DescribeStacks'],
+      resources: [this.stackId],
+    }));
+
     // ----------------------------------------------------------------
     // Stack outputs
     // ----------------------------------------------------------------
@@ -611,6 +649,12 @@ export class ResumeSiteStack extends cdk.Stack {
       value: githubDeployRole.roleArn,
       description: 'Set as the AWS_DEPLOY_ROLE_ARN secret in the GitHub repo',
       exportName: `${this.stackName}-GitHubActionsDeployRoleArn`,
+    });
+
+    new cdk.CfnOutput(this, 'GitHubActionsMetricsRoleArn', {
+      value: githubMetricsRole.roleArn,
+      description: 'Set as the AWS_METRICS_ROLE_ARN secret in the GitHub repo',
+      exportName: `${this.stackName}-GitHubActionsMetricsRoleArn`,
     });
   }
 }
