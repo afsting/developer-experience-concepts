@@ -251,24 +251,47 @@ JD explicitly calls out "own the DORA metrics and Software Engineering
 Intelligence (SEI) program." Turn that resume claim into a working artifact
 by instrumenting this repo's own pipeline:
 
-- [ ] Small job (Lambda on a schedule, or a GitHub Actions workflow) that
-      pulls this repo's own Actions run history via the GitHub REST API
-      and computes the four DORA metrics: deployment frequency, lead time
-      for changes, change failure rate, mean time to restore.
-- [ ] Render results as a scorecard section on the site (e.g. a new
-      `dora-metrics.html` page or a widget on `how-it-was-built.html`),
-      sourced from a small JSON file the job writes (similar pattern to
-      `content.json` → `build.js`).
-- [ ] Decide data source/refresh: could be a scheduled GitHub Actions
-      workflow that commits an updated JSON file (simplest, no new AWS
-      infra), or a Lambda+EventBridge pull that writes to S3 (more
-      "platform-y" but more infra to secure/pay for). Lean toward the
-      GitHub Actions + committed-JSON approach first — cheaper and simpler
-      to reason about security-wise (no new IAM roles, no public API).
+- [x] `scripts/dora-metrics.mjs` — dependency-free Node script that pulls
+      this repo's own `deploy.yml` run history via the GitHub REST API
+      (`GH_TOKEN`/`GITHUB_TOKEN`) and computes the four DORA metrics:
+      deployment frequency, lead time for changes, change failure rate,
+      mean time to restore. Writes `site/dora-metrics.json`. Verified
+      locally against the real repo (11 completed runs at time of writing).
+- [x] `site/dora-metrics.html` + `site/dora-metrics.js` — scorecard page
+      (same "content as data" pattern as `content.json`/`build.js`),
+      fetches `dora-metrics.json` and renders metric cards + a recent-runs
+      table. Linked from `index.html` nav/footer and
+      `how-it-was-built.html` nav/footer.
+- [x] Decided data source/refresh: a scheduled GitHub Actions workflow
+      (`.github/workflows/dora-metrics.yml`, weekly cron + `workflow_dispatch`
+      for on-demand runs) that computes the JSON and writes it **directly
+      to S3** via a new narrowly-scoped OIDC role (`GitHubActionsMetricsRole`
+      in `resume-site-stack.ts`, `s3:PutObject` on `dora-metrics.json`
+      only). Deliberately does **not** go through a git commit/PR/`cdk
+      deploy`: a PR opened by the default `GITHUB_TOKEN` can never trigger
+      `cdk-diff.yml`'s `pull_request` workflow (GitHub's anti-recursion
+      rule for `GITHUB_TOKEN`-authored events), which is a *required*
+      status check on `main` — an auto-merge would hang forever waiting on
+      a check that never reports. Writing straight to S3 (like a
+      mini-deploy scoped to one object) sidesteps that, and avoids an
+      unnecessary full `cdk deploy` + whole-site S3 sync + `/*` CloudFront
+      invalidation for a single JSON file refresh.
+- [x] `site/dora-metrics.json` is git-untracked (`.gitignore`) — fully
+      reproducible from GitHub's own Actions API at any time. `deploy.yml`'s
+      `aws s3 sync --delete` steps explicitly `--exclude "dora-metrics.json"`
+      so a normal site deploy never clobbers the live scorecard data (it's
+      absent from the git checkout, so `--delete` would otherwise remove it).
+- [ ] **Not yet merged/deployed** — new IAM role (`GitHubActionsMetricsRole`)
+      is a real infra change, needs the usual PR + `CDK Infrastructure Diff`
+      review + explicit go-ahead before merging (merging triggers a real
+      `cdk deploy`). Needs the `AWS_METRICS_ROLE_ARN` GitHub secret set
+      from the stack's new `GitHubActionsMetricsRoleArn` output after that
+      first deploy, before the scheduled workflow's first real run.
 - [ ] If historical run data before this repo's creation matters, note the
       metrics will only reflect activity captured going forward — no
       backdating trick needed, just be transparent about the data window
       on the page.
+
 
 ### 2. Bedrock AI chat — "ask about my experience"
 

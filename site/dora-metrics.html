@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="DORA metrics scorecard for this repo's own deploy pipeline: deployment frequency, lead time for changes, change failure rate, mean time to restore." />
+  <title>DORA Metrics – Raymond Page</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header role="banner">
+    <div class="container">
+      <h1 id="site-name"><a href="index.html" style="color:inherit;text-decoration:none;">Raymond Page</a></h1>
+      <p class="subtitle">DORA Metrics Scorecard</p>
+      <nav aria-label="Site navigation">
+        <ul>
+          <li><a href="index.html">← Back to Résumé</a></li>
+          <li><a href="how-it-was-built.html">How This Was Built</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" class="container prose" style="padding-top:2.5rem;padding-bottom:4rem;">
+
+    <h2>Deployment Pipeline Scorecard</h2>
+    <p>
+      This scorecard is a working artifact, not a mockup: it's computed from
+      this repo's own <code>deploy.yml</code> GitHub Actions run history via
+      the GitHub REST API, on a schedule, and reflects the four standard
+      <a href="https://dora.dev/guides/dora-metrics-four-keys/" target="_blank" rel="noopener noreferrer">DORA metrics</a>.
+    </p>
+    <div class="callout" id="scorecard-meta">Loading…</div>
+
+    <div class="metrics-grid" id="metrics-grid" aria-label="DORA metrics">
+      <!-- populated by script -->
+    </div>
+
+    <h2>Recent Deploys</h2>
+    <div id="recent-runs-table">
+      <!-- populated by script -->
+    </div>
+
+    <div class="callout">
+      <strong>Data window:</strong> metrics only reflect activity captured
+      since this repo's <code>deploy.yml</code> workflow first existed —
+      there's no backdating, so early numbers will look sparse/noisy until
+      more deploy history accumulates.
+    </div>
+
+  </main>
+
+  <footer role="contentinfo">
+    <div class="container">
+      <p>Raymond Page &middot; <a href="index.html">Résumé</a> &middot; <a href="how-it-was-built.html">How This Was Built</a></p>
+    </div>
+  </footer>
+
+  <script src="dora-metrics.js"></script>
+</body>
+</html>
