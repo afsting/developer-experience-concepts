@@ -36,7 +36,7 @@ GitHub → GitHub Actions (OIDC) → AWS
 | IaC | AWS CDK v2 (TypeScript) |
 | CI/CD | GitHub Actions; OIDC federation — no long-lived AWS keys |
 | Content | `site/content.json` (data) rendered by `site/build.js` (template) |
-| Domain | Default `*.cloudfront.net` for now; custom domain ready (see below) |
+| Domain | `resume.pages-enterprise.com` (custom domain via Route 53 + ACM) |
 
 ---
 
@@ -130,15 +130,17 @@ Before the first deploy, one-time manual setup is required:
 
 ---
 
-## Adding a Custom Domain
+## Custom Domain
 
-The stack is ready for a custom domain — no redesign needed:
+The site is served at `resume.pages-enterprise.com`:
 
-1. Request a public ACM certificate in `us-east-1` for your domain.
-2. Uncomment the `domainNames` and `certificate` lines in
-   `infra/lib/resume-site-stack.ts`.
-3. Add a Route 53 `ARecord` (or CNAME) pointing to the CloudFront distribution.
-4. Run `cdk deploy`.
+- A public ACM certificate (`us-east-1`, DNS-validated) is provisioned
+  directly in `infra/lib/resume-site-stack.ts`.
+- Route 53 alias `A`/`AAAA` records point the subdomain at the CloudFront
+  distribution, in the pre-existing `pages-enterprise.com` hosted zone.
+- SES is verified at the domain level (`pages-enterprise.com`), so any
+  sender address on that domain (e.g. `noreply@pages-enterprise.com`)
+  can send without a per-address confirmation-link click.
 
 ---
 
@@ -150,8 +152,8 @@ At résumé-traffic volumes (tens to low hundreds of requests/month):
 |---|---|
 | S3 | ~$0.00 (well under 1 GB, requests via CloudFront) |
 | CloudFront | ~$0.00–$0.10 (within AWS free tier at this volume) |
-| Route 53 (if custom domain) | ~$0.50/month per hosted zone |
-| **Total** | **< $1.00/month** |
+| Route 53 | ~$0.50/month hosted zone + ~$12–15/year domain registration |
+| **Total** | **< $1.50/month** (amortizing annual domain registration) |
 
 ---
 
