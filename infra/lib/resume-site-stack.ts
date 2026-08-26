@@ -455,7 +455,16 @@ export class ResumeSiteStack extends cdk.Stack {
       viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
       allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
       cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+      // NOTE: must NOT forward the viewer's Host header (which is the
+      // CloudFront distribution domain) to the API Gateway origin — API
+      // Gateway rejects requests whose Host header doesn't match its own
+      // execute-api domain with a 403, which CloudFront's
+      // CustomErrorResponses then masks as the site's generic 404 page,
+      // making this failure mode very confusing to diagnose from the
+      // browser alone. ALL_VIEWER_EXCEPT_HOST_HEADER forwards everything
+      // else (headers/cookies/query strings) but lets CloudFront set the
+      // Host header to match the origin (API Gateway) domain instead.
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
     });
 
     this.distributionDomainName = distribution.distributionDomainName;
