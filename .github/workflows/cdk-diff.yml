@@ -26,8 +26,23 @@ jobs:
 
       - name: Check for infra changes
         id: changes
+        # Also force run=false for Dependabot-authored PRs, even if they
+        # touch infra/ (e.g. an infra/package.json dependency bump) or
+        # this workflow file itself (an actions/* version bump). GitHub
+        # strips secrets and OIDC token permissions from pull_request runs
+        # triggered by dependabot[bot] as an anti-exfiltration measure —
+        # see https://docs.github.com/en/code-security/tutorials/secure-your-dependencies/automate-dependabot-with-actions#investigating-failed-workflow-runs
+        # ("secrets are available in Dependabot secrets rather than as
+        # GitHub Actions secrets"). configure-aws-credentials can
+        # therefore never authenticate on these runs, so attempting the
+        # actual `cdk diff` would always fail this required check. A
+        # dependency/action-version bump alone doesn't produce
+        # CloudFormation drift, so skipping is safe here — the PR diff
+        # (just version pins) is still human-reviewed before merge.
         run: |
-          if git diff --name-only "origin/${{ github.base_ref }}"...HEAD | grep -qE '^(infra/|\.github/workflows/cdk-diff\.yml)'; then
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "origin/${{ github.base_ref }}"...HEAD | grep -qE '^(infra/|\.github/workflows/cdk-diff\.yml)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -38,6 +53,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+
           cache: 'npm'
           cache-dependency-path: infra/package-lock.json
 
