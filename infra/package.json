@@ -16,7 +16,7 @@
     "@types/node": "^24.0.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
-    "aws-cdk": "2.152.0",
+    "aws-cdk": "2.1138.0",
     "esbuild": "^0.21.0",
     "eslint": "^8.57.0",
     "jest": "^29.5.0",
@@ -29,7 +29,7 @@
     "@aws-sdk/client-sesv2": "^3.600.0",
     "@aws-sdk/lib-dynamodb": "^3.600.0",
     "@aws-sdk/signature-v4a": "^3.1111.0",
-    "aws-cdk-lib": "2.152.0",
+    "aws-cdk-lib": "2.266.0",
     "constructs": "^10.0.0",
     "source-map-support": "^0.5.21"
   }
