@@ -131,19 +131,40 @@ header nav a[aria-current="page"] {
 
 /* ============================================================
    Left-edge sub-page navigation (in-page section jump links)
+
+   The header (title bar) spans the full width across the top; the
+   side-nav and main content sit in a row below it, and the footer
+   spans the full width again at the bottom.
    ============================================================ */
 body.has-side-nav {
-  margin-left: 200px;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  grid-template-areas:
+    "header header"
+    "side   main"
+    "footer footer";
+}
+
+body.has-side-nav > header {
+  grid-area: header;
+}
+
+body.has-side-nav > main {
+  grid-area: main;
+}
+
+body.has-side-nav > footer {
+  grid-area: footer;
 }
 
 .side-nav {
-  position: fixed;
+  grid-area: side;
+  align-self: start;
+  position: sticky;
   top: 0;
-  left: 0;
-  width: 200px;
-  height: 100vh;
+  max-height: 100vh;
   overflow-y: auto;
-  background: var(--color-surface);
+  background: var(--color-accent);
   border-right: 1px solid var(--color-border);
   padding: var(--space-lg) var(--space-sm);
 }
@@ -157,7 +178,7 @@ body.has-side-nav {
 
 .side-nav a {
   display: block;
-  color: var(--color-text-muted);
+  color: rgba(255,255,255,0.9);
   text-decoration: none;
   font-size: var(--font-size-sm);
   padding: 0.25rem 0.5rem;
@@ -167,17 +188,21 @@ body.has-side-nav {
 
 .side-nav a:hover,
 .side-nav a:focus-visible {
-  color: var(--color-accent);
-  background: var(--color-highlight-bg);
+  color: #fff;
+  background: rgba(255,255,255,0.15);
 }
 
 @media (max-width: 900px) {
-  .side-nav {
-    display: none;
+  body.has-side-nav {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "main"
+      "footer";
   }
 
-  body.has-side-nav {
-    margin-left: 0;
+  .side-nav {
+    display: none;
   }
 }
 
@@ -564,6 +589,10 @@ footer a:hover {
   }
 
   header {
+    background: #0a2a4a;
+  }
+
+  .side-nav {
     background: #0a2a4a;
   }
 }
