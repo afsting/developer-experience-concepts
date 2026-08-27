@@ -151,14 +151,19 @@
           credentials: 'same-origin',
           body: JSON.stringify({ email: submittedEmail }),
         })
-          .then(function () {
-            requestForm.hidden = true;
-            verifyForm.hidden = false;
-            showMessage('If that email is allowlisted, a verification code was sent. Check your inbox.', 'info');
-            codeInput.focus();
+          .then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (data) {
+              if (!response.ok) {
+                throw new Error(data && data.message ? data.message : 'Something went wrong sending the code. Please try again.');
+              }
+              requestForm.hidden = true;
+              verifyForm.hidden = false;
+              showMessage(data && data.message ? data.message : 'If that email is allowlisted, a verification code was sent. Check your inbox.', 'info');
+              codeInput.focus();
+            });
           })
-          .catch(function () {
-            showMessage('Something went wrong sending the code. Please try again.', 'error');
+          .catch(function (err) {
+            showMessage(err && err.message ? err.message : 'Something went wrong sending the code. Please try again.', 'error');
           })
           .finally(function () {
             requestSubmit.disabled = false;
