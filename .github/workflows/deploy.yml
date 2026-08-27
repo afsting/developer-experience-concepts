@@ -80,14 +80,16 @@ jobs:
             --delete
 
           # Sync static assets with long-lived cache headers.
-          # dora-metrics.json is excluded from both syncs — it's owned
-          # exclusively by the scheduled dora-metrics.yml workflow, which
-          # writes it directly to S3. Without this exclude, --delete here
-          # would remove it (it's git-untracked, so absent from this
+          # dora-metrics.json / security-scorecard.json are excluded from
+          # both syncs — they're owned exclusively by their own scheduled
+          # workflows (dora-metrics.yml / security-scorecard.yml), which
+          # write directly to S3. Without this exclude, --delete here
+          # would remove them (they're git-untracked, so absent from this
           # checkout) the next time this workflow runs.
           aws s3 sync site/ "s3://${{ steps.cdk-outputs.outputs.bucket_name }}/" \
             --exclude "*.html" \
             --exclude "dora-metrics.json" \
+            --exclude "security-scorecard.json" \
             --cache-control "max-age=31536000, immutable" \
             --delete
 
