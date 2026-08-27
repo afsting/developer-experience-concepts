@@ -7,17 +7,29 @@
   <title>How This Was Built – Raymond Page</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-page="how-it-was-built">
   <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <div class="top-nav-bar">
+    <div class="container">
+      <nav aria-label="Feature navigation" id="global-nav"></nav>
+    </div>
+  </div>
 
   <header role="banner">
     <div class="container">
       <h1 id="site-name"><a href="index.html" style="color:inherit;text-decoration:none;">Raymond Page</a></h1>
       <p class="subtitle">How This Was Built</p>
-      <nav aria-label="Site navigation">
+      <nav class="page-nav" aria-label="Page navigation">
         <ul>
-          <li><a href="index.html">← Back to Résumé</a></li>
-          <li><a href="dora-metrics.html">DORA Metrics</a></li>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#cicd">CI/CD Pipeline</a></li>
+          <li><a href="#content-architecture">Content Architecture</a></li>
+          <li><a href="#ai-assisted">AI-Assisted Build</a></li>
+          <li><a href="#cost">Estimated Cost</a></li>
+          <li><a href="#custom-domain">Custom Domain</a></li>
+          <li><a href="#repo-structure">Repo Structure</a></li>
         </ul>
       </nav>
     </div>
@@ -25,7 +37,7 @@
 
   <main id="main-content" class="container prose" style="padding-top:2.5rem;padding-bottom:4rem;">
 
-    <h2>Overview</h2>
+    <h2 id="overview">Overview</h2>
     <p>
       This résumé site is intentionally a small, working demonstration of the
       platform-engineering practices described in the résumé itself: a golden-path
@@ -40,7 +52,7 @@
       This project exercises all of those muscles on a real, public artifact.
     </div>
 
-    <h2>Architecture</h2>
+    <h2 id="architecture">Architecture</h2>
     <h3>Hosting: S3 + CloudFront (Origin Access Control)</h3>
     <p>
       Site files live in a private S3 bucket — no public access is enabled at the
@@ -83,7 +95,7 @@
       <li>Teardown is a single <code>cdk destroy</code>.</li>
     </ul>
 
-    <h2>CI/CD Pipeline (GitHub Actions)</h2>
+    <h2 id="cicd">CI/CD Pipeline (GitHub Actions)</h2>
     <h3>No Long-Lived AWS Keys</h3>
     <p>
       The pipeline uses <strong>GitHub OIDC federation</strong> to assume an AWS IAM
@@ -115,7 +127,7 @@
       that mirrors enterprise change-management practices.
     </p>
 
-    <h2>Content Architecture: Data-Driven Résumé</h2>
+    <h2 id="content-architecture">Content Architecture: Data-Driven Résumé</h2>
     <p>
       Résumé content lives in <code>site/content.json</code> — a structured JSON
       file separate from the HTML template and rendering logic. Updating the résumé
@@ -129,7 +141,7 @@
       the rendering layer to update content.
     </p>
 
-    <h2>AI-Assisted Build Process</h2>
+    <h2 id="ai-assisted">AI-Assisted Build Process</h2>
     <h3>What Was AI-Assisted</h3>
     <ul>
       <li><strong>Initial scaffolding</strong> — project structure, CDK stack skeleton, GitHub Actions workflow YAML, and this prose were drafted with Claude (Anthropic) as a co-author, guided by specific prompts describing the architecture requirements.</li>
@@ -153,7 +165,7 @@
       DevEx role is meant to enable at scale.
     </p>
 
-    <h2>Estimated AWS Cost</h2>
+    <h2 id="cost">Estimated AWS Cost</h2>
     <p>
       At resume-traffic volumes (tens to low hundreds of requests/month):
     </p>
@@ -164,7 +176,7 @@
       <li><strong>Total estimated monthly cost: &lt; $1.00</strong>, likely $0.00–$0.10 in practice.</li>
     </ul>
 
-    <h2>Adding a Custom Domain (Future)</h2>
+    <h2 id="custom-domain">Adding a Custom Domain (Future)</h2>
     <p>
       To add a custom domain (e.g., <code>resume.example.com</code>):
     </p>
@@ -178,7 +190,7 @@
       The stack is already structured for this — no redesign needed.
     </p>
 
-    <h2>Repository Structure</h2>
+    <h2 id="repo-structure">Repository Structure</h2>
     <pre><code>developer-experience-concepts/
 ├── .github/
 │   └── workflows/
@@ -205,8 +217,10 @@
 
   <footer role="contentinfo">
     <div class="container">
-      <p>Raymond Page &middot; <a href="index.html">Résumé</a> &middot; <a href="dora-metrics.html">DORA Metrics</a> &middot; <a href="how-it-was-built.html">How This Was Built</a></p>
+      <p>Raymond Page &middot; <a href="index.html">Résumé</a></p>
     </div>
   </footer>
+
+  <script src="nav.js"></script>
 </body>
 </html>
