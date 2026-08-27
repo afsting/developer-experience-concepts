@@ -267,14 +267,17 @@ export class ResumeSiteStack extends cdk.Stack {
     });
     otpTable.grantReadWriteData(requestCodeFn);
     allowlistTable.grantReadData(requestCodeFn);
-    // SES authorizes ses:SendEmail against the identity ARN of the
-    // *verified* identity, which here is the domain (pages-enterprise.com),
-    // not the specific from-address — an address-shaped identity ARN
-    // (identity/noreply@pages-enterprise.com) is never actually verified on
-    // its own and SES denies against the domain ARN instead.
+    // SES authorizes ses:SendEmail against the identity ARN of BOTH the
+    // "From" identity and, while the account is in the SES sandbox, every
+    // recipient — recipients must also resolve to an authorized identity
+    // ARN. Recipients here are an arbitrary, dynamically-managed allowlist
+    // (see AdminAllowlistFunction) and can't be enumerated up front, so
+    // per AWS's own guidance for email-sending-only policies we use a
+    // wildcard resource; the real access boundary is the allowlist check
+    // in requestCode/index.ts, not this IAM policy.
     requestCodeFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['ses:SendEmail'],
-      resources: [`arn:aws:ses:${this.region}:${this.account}:identity/${siteHostedZone.zoneName}`],
+      resources: ['*'],
     }));
 
     const verifyCodeFn = new lambdaNode.NodejsFunction(this, 'VerifyCodeFunction', {
