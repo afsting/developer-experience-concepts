@@ -58,18 +58,41 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     },
   }));
 
-  await ses.send(new SendEmailCommand({
-    FromEmailAddress: SES_FROM_ADDRESS,
-    Destination: { ToAddresses: [email] },
-    Content: {
-      Simple: {
-        Subject: { Data: 'Your verification code' },
-        Body: {
-          Text: { Data: `Your verification code is ${code}. It expires in 10 minutes. If you didn't request this, you can ignore this email.` },
+  try {
+    await ses.send(new SendEmailCommand({
+      FromEmailAddress: SES_FROM_ADDRESS,
+      Destination: { ToAddresses: [email] },
+      Content: {
+        Simple: {
+          Subject: { Data: 'Your verification code' },
+          Body: {
+            Text: { Data: `Your verification code is ${code}. It expires in 10 minutes. If you didn't request this, you can ignore this email.` },
+          },
         },
       },
-    },
-  }));
+    }));
+  } catch (err) {
+    console.error('Failed to send verification code email', err);
+    // SES sandbox mode requires every recipient to be individually
+    // verified (see task.md — SES production access). Surface that as an
+    // actionable message rather than a bare 500; it's only reachable for
+    // already-allowlisted emails, so it doesn't weaken the anti-enumeration
+    // behavior above.
+    if (err instanceof Error && err.name === 'MessageRejected') {
+      return {
+        statusCode: 503,
+        headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+        body: JSON.stringify({
+          message: 'Your email address needs to be verified before we can send a login code. Please contact the site owner to complete verification, then try again.',
+        }),
+      };
+    }
+    return {
+      statusCode: 500,
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+      body: JSON.stringify({ message: 'Something went wrong sending the verification code. Please try again shortly.' }),
+    };
+  }
 
   return GENERIC_RESPONSE;
 }
