@@ -82,37 +82,6 @@ body {
 /* ============================================================
    Header
    ============================================================ */
-.top-nav-bar {
-  background: var(--color-bg-alt, #0a2540);
-  color: #fff;
-}
-
-.top-nav-bar nav ul {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-md);
-  padding: var(--space-xs) 0;
-}
-
-.top-nav-bar nav a {
-  color: rgba(255,255,255,0.9);
-  text-decoration: none;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  border-bottom: 1px solid transparent;
-  padding-bottom: 2px;
-  transition: border-color 0.15s;
-}
-.top-nav-bar nav a:hover,
-.top-nav-bar nav a:focus-visible {
-  border-color: rgba(255,255,255,0.8);
-}
-.top-nav-bar nav a[aria-current="page"] {
-  border-color: #fff;
-  font-weight: 700;
-}
-
 header {
   background: var(--color-accent);
   color: #fff;
@@ -139,13 +108,14 @@ header nav ul {
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-sm);
+  gap: var(--space-xs) var(--space-md);
 }
 
 header nav a {
   color: rgba(255,255,255,0.9);
   text-decoration: none;
   font-size: var(--font-size-sm);
+  font-weight: 600;
   border-bottom: 1px solid transparent;
   padding-bottom: 2px;
   transition: border-color 0.15s;
@@ -154,21 +124,61 @@ header nav a:hover,
 header nav a:focus-visible {
   border-color: rgba(255,255,255,0.8);
 }
-
-header nav.page-nav {
-  margin-top: var(--space-xs);
-  padding-top: var(--space-xs);
-  border-top: 1px solid rgba(255,255,255,0.15);
-}
-
-header nav.page-nav a {
-  font-size: 0.8125rem;
-  color: rgba(255,255,255,0.75);
-}
-
 header nav a[aria-current="page"] {
   border-color: #fff;
   font-weight: 700;
+}
+
+/* ============================================================
+   Left-edge sub-page navigation (in-page section jump links)
+   ============================================================ */
+body.has-side-nav {
+  margin-left: 200px;
+}
+
+.side-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 200px;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-lg) var(--space-sm);
+}
+
+.side-nav ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.side-nav a {
+  display: block;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  transition: background 0.15s, color 0.15s;
+}
+
+.side-nav a:hover,
+.side-nav a:focus-visible {
+  color: var(--color-accent);
+  background: var(--color-highlight-bg);
+}
+
+@media (max-width: 900px) {
+  .side-nav {
+    display: none;
+  }
+
+  body.has-side-nav {
+    margin-left: 0;
+  }
 }
 
 
@@ -523,6 +533,10 @@ footer a:hover {
     font-size: 1.5rem;
   }
 
+  header nav ul {
+    gap: var(--space-xs) var(--space-sm);
+  }
+
   h2 {
     font-size: 1.25rem;
   }
@@ -551,9 +565,5 @@ footer a:hover {
 
   header {
     background: #0a2a4a;
-  }
-
-  .top-nav-bar {
-    background: #061a30;
   }
 }
