@@ -633,21 +633,23 @@ export class ResumeSiteStack extends cdk.Stack {
       resources: [`arn:aws:cloudfront::${this.account}:distribution/${distribution.distributionId}`],
     }));
 
-    // Narrowly-scoped role for the weekly DORA-metrics-refresh workflow
-    // (.github/workflows/dora-metrics.yml, schedule + workflow_dispatch
-    // triggers only). Deliberately NOT the deploy role: this workflow
-    // only ever needs to overwrite one S3 object (site/dora-metrics.json)
-    // — it doesn't run `cdk deploy` and doesn't touch any other site
-    // file, so it gets its own least-privilege role rather than reusing
-    // githubDeployRole's full bucket read/write + CloudFront invalidation
-    // access. Written with Cache-Control: no-cache (like HTML), so no
-    // CloudFront invalidation permission is needed either — the object
-    // is always revalidated at the edge.
+    // Narrowly-scoped role shared by the scheduled data-refresh workflows
+    // (.github/workflows/dora-metrics.yml and security-scorecard.yml,
+    // schedule + workflow_dispatch triggers only). Deliberately NOT the
+    // deploy role: these workflows only ever need to overwrite their own
+    // named S3 object (dora-metrics.json / security-scorecard.json) —
+    // neither runs `cdk deploy` nor touches any other site file, so they
+    // share one least-privilege role scoped to just those two object
+    // keys, rather than reusing githubDeployRole's full bucket
+    // read/write + CloudFront invalidation access. Both are written with
+    // Cache-Control: no-cache (like HTML), so no CloudFront invalidation
+    // permission is needed either — each object is always revalidated at
+    // the edge.
     const githubSubScheduledOrDispatch = `repo:${githubOwner}*/${githubRepoName}*:ref:refs/heads/main`;
 
     const githubMetricsRole = new iam.Role(this, 'GitHubActionsMetricsRole', {
       roleName: 'github-actions-resume-site-metrics',
-      description: 'Role assumed by GitHub Actions to publish the DORA metrics scorecard JSON on a schedule',
+      description: 'Role assumed by GitHub Actions to publish scheduled data JSON (DORA metrics, security scorecard) to the site bucket',
       assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
         StringEquals: {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
@@ -660,9 +662,12 @@ export class ResumeSiteStack extends cdk.Stack {
     });
 
     githubMetricsRole.addToPolicy(new iam.PolicyStatement({
-      sid: 'PutDoraMetricsObjectOnly',
+      sid: 'PutMetricsObjectsOnly',
       actions: ['s3:PutObject'],
-      resources: [siteBucket.arnForObjects('dora-metrics.json')],
+      resources: [
+        siteBucket.arnForObjects('dora-metrics.json'),
+        siteBucket.arnForObjects('security-scorecard.json'),
+      ],
     }));
 
     githubMetricsRole.addToPolicy(new iam.PolicyStatement({

@@ -366,6 +366,12 @@ preferred. Cheap ways to demonstrate this without standing up a full IDP:
       the repo root describing this "service" — owner, links, docs,
       lifecycle stage. Doesn't require running Backstage to be a valid,
       inspectable artifact.
+- [x] **Surface it on the demo site, not just the repo** (2026-08-27):
+      added a "Use this template →" CTA button and a live
+      `catalog-info.yaml` render (`site/catalog-render.js` fetches the
+      raw file from `raw.githubusercontent.com` at page load — no YAML
+      parsing, rendered verbatim as proof it's live, not pasted-in) to
+      the Golden-Path section of `how-it-was-built.html`.
 
 ### 4. DevSecOps CI hardening
 
@@ -391,6 +397,30 @@ that extend the existing pipeline:
       via `npm audit fix` (no-op) and `npm audit fix --force` (would pull
       `aws-cdk-lib@2.266.0`, outside the stated range). Tighten to `high`
       once that upgrade lands.
+- [x] **Surface it on the demo site, not just CI config** (2026-08-27):
+      added a "DevSecOps CI Hardening" section to `how-it-was-built.html`
+      with live GitHub Actions status badges (CodeQL/Deploy/CDK Diff),
+      plus a new **Security Scorecard** page
+      (`site/security-scorecard.html` + `.js`), same "content as data"
+      pattern as `dora-metrics.html`. A new daily-scheduled workflow
+      (`.github/workflows/security-scorecard.yml`,
+      `scripts/security-scorecard.mjs`) computes and publishes
+      `site/security-scorecard.json` (git-untracked, same reasoning as
+      `dora-metrics.json`) from three live sources:
+        - CodeQL open-alert counts by severity + last analysis date, via
+          the code-scanning REST API (needs `security-events: read`,
+          grantable to `GITHUB_TOKEN`).
+        - Dependabot PR activity (opened/merged-last-90-days counts) via
+          the search API, as a proxy for "Dependabot is active" — the
+          real Dependabot *alerts* API needs permissions that can't be
+          granted to the default `GITHUB_TOKEN`.
+        - Fresh `npm audit --json` vulnerability counts + whether the CI
+          gate (`--audit-level=critical`) would currently pass.
+      Reused the existing `GitHubActionsMetricsRole` (widened to
+      `s3:PutObject` on both `dora-metrics.json` and
+      `security-scorecard.json`, same `AWS_METRICS_ROLE_ARN` secret)
+      rather than minting a third role, since the access pattern
+      (overwrite one named object, no `cdk deploy`) is identical.
 
 ## Nice-to-haves / "demonstrate more DX practices"
 

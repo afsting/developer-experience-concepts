@@ -27,6 +27,7 @@
           <li><a href="#cicd">CI/CD Pipeline</a></li>
           <li><a href="#content-architecture">Content Architecture</a></li>
           <li><a href="#golden-path">Golden-Path Demo</a></li>
+          <li><a href="#devsecops">DevSecOps</a></li>
           <li><a href="#ai-assisted">AI-Assisted Build</a></li>
           <li><a href="#cost">Estimated Cost</a></li>
           <li><a href="#custom-domain">Custom Domain</a></li>
@@ -153,6 +154,9 @@
       links, and lifecycle stage. Neither requires running a full IDP
       (Backstage, Port, Cortex, etc.) to be a valid, inspectable artifact.
     </p>
+    <p>
+      <a class="button" href="https://github.com/new?template_name=developer-experience-concepts&amp;template_owner=afsting" target="_blank" rel="noopener noreferrer">Use this template →</a>
+    </p>
     <div class="callout">
       <strong>Grounded in real experience:</strong> This mirrors work already
       done at scale — one of the first templates onboarded to Mutual of
@@ -161,8 +165,46 @@
       today and continues to save developers significant time baselining
       new MuleSoft APIs.
     </div>
+    <h3>Live <code>catalog-info.yaml</code></h3>
+    <p>
+      Fetched at page load directly from this repo's default branch — not
+      pasted in, so it always reflects the real file.
+    </p>
+    <pre class="catalog-render"><code id="catalog-info-render">Loading…</code></pre>
+
+    <h2 id="devsecops">DevSecOps CI Hardening</h2>
+    <p>
+      The pipeline described above also carries three concrete DevSecOps
+      controls, all enforced automatically on every push/PR rather than
+      relying on a manual review step:
+    </p>
+    <ul>
+      <li><strong>CodeQL</strong> static analysis (SAST) — scans <code>infra/**</code> TypeScript and <code>site/**</code> JavaScript on every push to <code>main</code>, every PR, and a weekly schedule.</li>
+      <li><strong>Dependabot</strong> — weekly automated PRs for outdated npm packages (<code>infra/</code>, with AWS SDK/CDK packages grouped to reduce noise) and GitHub Actions versions.</li>
+      <li><strong>Gated <code>npm audit</code></strong> — a required CI step in both <code>cdk-diff.yml</code> and <code>deploy.yml</code> that fails the build on newly introduced vulnerabilities above a configured severity threshold.</li>
+    </ul>
+    <div class="badges" aria-label="Live CI status badges">
+      <a href="https://github.com/afsting/developer-experience-concepts/actions/workflows/codeql.yml" target="_blank" rel="noopener noreferrer">
+        <img src="https://github.com/afsting/developer-experience-concepts/actions/workflows/codeql.yml/badge.svg" alt="CodeQL workflow status" />
+      </a>
+      <a href="https://github.com/afsting/developer-experience-concepts/actions/workflows/deploy.yml" target="_blank" rel="noopener noreferrer">
+        <img src="https://github.com/afsting/developer-experience-concepts/actions/workflows/deploy.yml/badge.svg" alt="Deploy workflow status" />
+      </a>
+      <a href="https://github.com/afsting/developer-experience-concepts/actions/workflows/cdk-diff.yml" target="_blank" rel="noopener noreferrer">
+        <img src="https://github.com/afsting/developer-experience-concepts/actions/workflows/cdk-diff.yml/badge.svg" alt="CDK Diff workflow status" />
+      </a>
+    </div>
+    <p>
+      These badges are GitHub's own live status images — they aren't
+      screenshots, they update automatically as the workflows run. See the
+      <a href="security-scorecard.html">Security Scorecard</a> for a working
+      artifact built the same way as the DORA metrics page: a scheduled
+      job pulls this repo's own CodeQL alert counts, Dependabot PR activity,
+      and current <code>npm audit</code> findings and renders them live.
+    </p>
 
     <h2 id="ai-assisted">AI-Assisted Build Process</h2>
+
     <h3>What Was AI-Assisted</h3>
     <ul>
       <li><strong>Initial scaffolding</strong> — project structure, CDK stack skeleton, GitHub Actions workflow YAML, and this prose were drafted with Claude (Anthropic) as a co-author, guided by specific prompts describing the architecture requirements.</li>
@@ -243,5 +285,6 @@
   </footer>
 
   <script src="nav.js"></script>
+  <script src="catalog-render.js"></script>
 </body>
 </html>

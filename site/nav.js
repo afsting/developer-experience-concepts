@@ -8,6 +8,7 @@
   var GLOBAL_NAV = [
     { page: 'resume', href: 'index.html', label: 'Resume' },
     { page: 'dora-metrics', href: 'dora-metrics.html', label: 'DORA Metrics' },
+    { page: 'security-scorecard', href: 'security-scorecard.html', label: 'Security Scorecard' },
     { page: 'how-it-was-built', href: 'how-it-was-built.html', label: 'How This Was Built' },
   ];
 
