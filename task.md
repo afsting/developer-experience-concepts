@@ -356,10 +356,12 @@ Security requirements (must-have, not optional, given public exposure):
 JD calls out IDP ownership and Backstage/Port/Cortex experience as
 preferred. Cheap ways to demonstrate this without standing up a full IDP:
 
-- [ ] Turn this repo into an actual GitHub **template repository** (repo
+- [x] Turn this repo into an actual GitHub **template repository** (repo
       setting, "Template repository" checkbox) so it's a literal,
       clone-and-go golden path rather than just a description of one.
-- [ ] Add a `catalog-info.yaml` (Backstage's service-catalog format) at
+      Enabled via `gh api repos/afsting/developer-experience-concepts -X
+      PATCH -f is_template=true` (2026-08-26).
+- [x] Add a `catalog-info.yaml` (Backstage's service-catalog format) at
       the repo root describing this "service" — owner, links, docs,
       lifecycle stage. Doesn't require running Backstage to be a valid,
       inspectable artifact.
