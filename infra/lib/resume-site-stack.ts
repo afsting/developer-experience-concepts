@@ -267,9 +267,14 @@ export class ResumeSiteStack extends cdk.Stack {
     });
     otpTable.grantReadWriteData(requestCodeFn);
     allowlistTable.grantReadData(requestCodeFn);
+    // SES authorizes ses:SendEmail against the identity ARN of the
+    // *verified* identity, which here is the domain (pages-enterprise.com),
+    // not the specific from-address — an address-shaped identity ARN
+    // (identity/noreply@pages-enterprise.com) is never actually verified on
+    // its own and SES denies against the domain ARN instead.
     requestCodeFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['ses:SendEmail'],
-      resources: [`arn:aws:ses:${this.region}:${this.account}:identity/${otpSesFromAddress}`],
+      resources: [`arn:aws:ses:${this.region}:${this.account}:identity/${siteHostedZone.zoneName}`],
     }));
 
     const verifyCodeFn = new lambdaNode.NodejsFunction(this, 'VerifyCodeFunction', {

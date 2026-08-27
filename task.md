@@ -232,6 +232,18 @@ edits):**
       entries (e.g. `@mutualofomaha.com`) will NOT work under sandbox mode
       no matter what — only exact, individually-verified addresses can
       receive mail. This is a known v1 limitation, not a bug.
+- [x] **Bug fix**: after switching SES to domain-level verification
+      (`pages-enterprise.com`), `/auth/request-code` started returning 500s
+      — CloudWatch showed `ses:SendEmail AccessDeniedException`. The
+      `RequestCodeFunction` IAM policy still granted `ses:SendEmail` on an
+      address-shaped resource ARN (`identity/noreply@pages-enterprise.com`).
+      Once an identity is verified at the domain level, SES authorizes
+      `SendEmail` against the **domain's** identity ARN
+      (`identity/pages-enterprise.com`), not an address-shaped ARN, even
+      though the from-address itself is under that domain. Fixed in
+      `infra/lib/resume-site-stack.ts` by building the policy resource from
+      `siteHostedZone.zoneName` instead of `otpSesFromAddress`. Confirmed
+      via direct `aws lambda invoke` testing before/after.
 - [ ] Manual post-deploy verification: walk the login flow at the deployed
       URL end-to-end (request code → check email → verify code → session
       cookie → `/admin.html` allowlist CRUD).
@@ -245,7 +257,7 @@ file `otp-gate-implementation-status.md` if picked up by an AI assistant;
 otherwise this checklist plus the code comments in the files above should
 be enough to resume manually.
 
-### 1. DORA metrics / SEI scorecard — NEXT UP
+### 1. DORA metrics / SEI scorecard — DONE
 
 JD explicitly calls out "own the DORA metrics and Software Engineering
 Intelligence (SEI) program." Turn that resume claim into a working artifact
@@ -281,12 +293,15 @@ by instrumenting this repo's own pipeline:
       `aws s3 sync --delete` steps explicitly `--exclude "dora-metrics.json"`
       so a normal site deploy never clobbers the live scorecard data (it's
       absent from the git checkout, so `--delete` would otherwise remove it).
-- [ ] **Not yet merged/deployed** — new IAM role (`GitHubActionsMetricsRole`)
-      is a real infra change, needs the usual PR + `CDK Infrastructure Diff`
-      review + explicit go-ahead before merging (merging triggers a real
-      `cdk deploy`). Needs the `AWS_METRICS_ROLE_ARN` GitHub secret set
-      from the stack's new `GitHubActionsMetricsRoleArn` output after that
-      first deploy, before the scheduled workflow's first real run.
+- [x] Merged/deployed (PR #11) and fully verified end-to-end: `deploy.yml`
+      deployed `GitHubActionsMetricsRole`; `AWS_METRICS_ROLE_ARN` GitHub
+      secret set from the stack's `GitHubActionsMetricsRoleArn` output;
+      `dora-metrics.yml` manually triggered via `workflow_dispatch` and
+      confirmed successful (OIDC auth → bucket lookup → S3 publish all
+      succeeded); `dora-metrics.json` confirmed live in the site bucket.
+      Scorecard is reachable at `https://resume.pages-enterprise.com/dora-metrics.html`
+      (behind the OTP login gate, same as the rest of the site). Weekly
+      cron (`17 6 * * 1`, Monday) will keep it refreshed going forward.
 - [ ] If historical run data before this repo's creation matters, note the
       metrics will only reflect activity captured going forward — no
       backdating trick needed, just be transparent about the data window
