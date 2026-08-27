@@ -198,7 +198,7 @@ export class ResumeSiteStack extends cdk.Stack {
 
     const kvsSeedFn = new lambdaNode.NodejsFunction(this, 'KvsSeedFunction', {
       entry: path.join(__dirname, '../lambda/kvsSeed/index.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       architecture: lambda.Architecture.ARM_64,
       timeout: cdk.Duration.minutes(2),
       bundling: { externalModules: [] },
@@ -255,7 +255,7 @@ export class ResumeSiteStack extends cdk.Stack {
     // ---- API Lambdas behind /auth/* ----
     const requestCodeFn = new lambdaNode.NodejsFunction(this, 'RequestCodeFunction', {
       entry: path.join(__dirname, '../lambda/requestCode/index.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       architecture: lambda.Architecture.ARM_64,
       timeout: cdk.Duration.seconds(10),
       environment: {
@@ -282,7 +282,7 @@ export class ResumeSiteStack extends cdk.Stack {
 
     const verifyCodeFn = new lambdaNode.NodejsFunction(this, 'VerifyCodeFunction', {
       entry: path.join(__dirname, '../lambda/verifyCode/index.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       architecture: lambda.Architecture.ARM_64,
       timeout: cdk.Duration.seconds(10),
       environment: {
@@ -301,7 +301,7 @@ export class ResumeSiteStack extends cdk.Stack {
 
     const adminFn = new lambdaNode.NodejsFunction(this, 'AdminAllowlistFunction', {
       entry: path.join(__dirname, '../lambda/admin/index.ts'),
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       architecture: lambda.Architecture.ARM_64,
       timeout: cdk.Duration.seconds(10),
       environment: {
