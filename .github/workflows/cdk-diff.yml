@@ -46,6 +46,17 @@ jobs:
         working-directory: infra
         run: npm ci
 
+      - name: Audit dependencies
+        if: steps.changes.outputs.run == 'true'
+        working-directory: infra
+        # Gated at 'critical' rather than 'high' for now: the existing
+        # high/moderate findings are all bundled transitive deps inside
+        # aws-cdk-lib itself (ajv/minimatch/yaml/brace-expansion), only
+        # fixable by an aws-cdk-lib major-version bump — tracked separately
+        # in task.md ("Un-pin / upgrade aws-cdk"), pending a feature-flag
+        # compat review. Tighten back to 'high' once that lands.
+        run: npm audit --audit-level=critical
+
       - name: Build CDK app
         if: steps.changes.outputs.run == 'true'
         working-directory: infra

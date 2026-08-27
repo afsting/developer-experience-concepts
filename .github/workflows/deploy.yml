@@ -30,6 +30,12 @@ jobs:
         working-directory: infra
         run: npm ci
 
+      - name: Audit dependencies
+        working-directory: infra
+        # See cdk-diff.yml's matching step for why this is 'critical' and
+        # not 'high' for now.
+        run: npm audit --audit-level=critical
+
       - name: Build CDK app
         working-directory: infra
         run: npm run build

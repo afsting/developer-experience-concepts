@@ -372,18 +372,33 @@ preferred. Cheap ways to demonstrate this without standing up a full IDP:
 JD requires "strong understanding of... DevSecOps" — cheap, concrete wins
 that extend the existing pipeline:
 
-- [ ] Add CodeQL scanning (GitHub's built-in code scanning) for the CDK
-      TypeScript code.
-- [ ] Add Dependabot config (this overlaps with the existing nice-to-have
-      below — do them together).
-- [ ] Add `npm audit` (or a dedicated tool) as a gating CI step.
+- [x] Add CodeQL scanning (GitHub's built-in code scanning) for the CDK
+      TypeScript code. `.github/workflows/codeql.yml` — `javascript-typescript`
+      language (covers `infra/**` TS and `site/**` JS, no build step
+      needed), runs on push to `main`, PRs into `main`, and a weekly cron.
+- [x] Add Dependabot config (this overlaps with the existing nice-to-have
+      below — do them together). `.github/dependabot.yml` — weekly npm
+      updates for `infra/` (grouped `@aws-sdk/*`/`aws-cdk*`) and weekly
+      GitHub Actions version updates.
+- [x] Add `npm audit` (or a dedicated tool) as a gating CI step. Added to
+      both `cdk-diff.yml` (gated behind the existing infra-changed check)
+      and `deploy.yml` (unconditional, before `cdk deploy`). Gated at
+      `--audit-level=critical` rather than `high` for now: the current
+      high/moderate findings (`ajv`, `minimatch`, `yaml`,
+      `brace-expansion`) are all bundled transitive deps inside
+      `aws-cdk-lib` 2.152.0 itself, only fixable by the aws-cdk-lib major
+      bump already tracked below ("Un-pin / upgrade aws-cdk") — confirmed
+      via `npm audit fix` (no-op) and `npm audit fix --force` (would pull
+      `aws-cdk-lib@2.266.0`, outside the stated range). Tighten to `high`
+      once that upgrade lands.
 
 ## Nice-to-haves / "demonstrate more DX practices"
 
 - [x] Add a LICENSE (all rights reserved) and README note clarifying the
       repo is public for portfolio purposes only, not for reuse or AI
       training datasets.
-- [ ] Dependabot config for `infra/package.json` and GitHub Actions versions.
+- [x] Dependabot config for `infra/package.json` and GitHub Actions versions.
+      (Done as part of DevSecOps CI hardening above — `.github/dependabot.yml`.)
 - [ ] PR template referencing the CDK diff comment / review checklist.
 - [ ] Smoke-test step after deploy (curl the CloudFront URL, assert 200).
 - [x] Custom domain: `resume.pages-enterprise.com`, registered via Route 53.
