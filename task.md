@@ -275,7 +275,7 @@ by instrumenting this repo's own pipeline:
       table. Linked from `index.html` nav/footer and
       `how-it-was-built.html` nav/footer.
 - [x] Decided data source/refresh: a scheduled GitHub Actions workflow
-      (`.github/workflows/dora-metrics.yml`, weekly cron + `workflow_dispatch`
+      (`.github/workflows/dora-metrics.yml`, daily cron + `workflow_dispatch`
       for on-demand runs) that computes the JSON and writes it **directly
       to S3** via a new narrowly-scoped OIDC role (`GitHubActionsMetricsRole`
       in `resume-site-stack.ts`, `s3:PutObject` on `dora-metrics.json`
@@ -300,8 +300,9 @@ by instrumenting this repo's own pipeline:
       confirmed successful (OIDC auth → bucket lookup → S3 publish all
       succeeded); `dora-metrics.json` confirmed live in the site bucket.
       Scorecard is reachable at `https://resume.pages-enterprise.com/dora-metrics.html`
-      (behind the OTP login gate, same as the rest of the site). Weekly
-      cron (`17 6 * * 1`, Monday) will keep it refreshed going forward.
+      (behind the OTP login gate, same as the rest of the site). Cron
+      updated to daily (`17 6 * * *`, ~06:17 UTC) (2026-08-27) to keep it
+      fresher; previously weekly (`17 6 * * 1`, Monday).
 - [ ] If historical run data before this repo's creation matters, note the
       metrics will only reflect activity captured going forward — no
       backdating trick needed, just be transparent about the data window
