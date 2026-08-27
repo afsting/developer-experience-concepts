@@ -7,17 +7,23 @@
   <title>DORA Metrics – Raymond Page</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-page="dora-metrics">
   <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <div class="top-nav-bar">
+    <div class="container">
+      <nav aria-label="Feature navigation" id="global-nav"></nav>
+    </div>
+  </div>
 
   <header role="banner">
     <div class="container">
       <h1 id="site-name"><a href="index.html" style="color:inherit;text-decoration:none;">Raymond Page</a></h1>
       <p class="subtitle">DORA Metrics Scorecard</p>
-      <nav aria-label="Site navigation">
+      <nav class="page-nav" aria-label="Page navigation">
         <ul>
-          <li><a href="index.html">← Back to Résumé</a></li>
-          <li><a href="how-it-was-built.html">How This Was Built</a></li>
+          <li><a href="#scorecard">Scorecard</a></li>
+          <li><a href="#recent-deploys">Recent Deploys</a></li>
         </ul>
       </nav>
     </div>
@@ -25,7 +31,7 @@
 
   <main id="main-content" class="container prose" style="padding-top:2.5rem;padding-bottom:4rem;">
 
-    <h2>Deployment Pipeline Scorecard</h2>
+    <h2 id="scorecard">Deployment Pipeline Scorecard</h2>
     <p>
       This scorecard is a working artifact, not a mockup: it's computed from
       this repo's own <code>deploy.yml</code> GitHub Actions run history via
@@ -38,7 +44,7 @@
       <!-- populated by script -->
     </div>
 
-    <h2>Recent Deploys</h2>
+    <h2 id="recent-deploys">Recent Deploys</h2>
     <div id="recent-runs-table">
       <!-- populated by script -->
     </div>
@@ -54,10 +60,11 @@
 
   <footer role="contentinfo">
     <div class="container">
-      <p>Raymond Page &middot; <a href="index.html">Résumé</a> &middot; <a href="how-it-was-built.html">How This Was Built</a></p>
+      <p>Raymond Page &middot; <a href="index.html">Résumé</a></p>
     </div>
   </footer>
 
+  <script src="nav.js"></script>
   <script src="dora-metrics.js"></script>
 </body>
 </html>

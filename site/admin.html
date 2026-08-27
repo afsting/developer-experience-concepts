@@ -26,9 +26,22 @@
     .status.ok { color: #1a4e8a; }
   </style>
 </head>
-<body>
+<body data-page="admin">
+  <div class="top-nav-bar">
+    <div class="container">
+      <nav aria-label="Feature navigation" id="global-nav"></nav>
+    </div>
+  </div>
+
+  <header role="banner">
+    <div class="container">
+      <h1 id="site-name"><a href="index.html" style="color:inherit;text-decoration:none;">Raymond Page</a></h1>
+      <p class="subtitle">Allowlist Admin</p>
+    </div>
+  </header>
+
   <main>
-    <h1>Allowlist admin</h1>
+    <h2>Allowlist admin</h2>
     <p>Manage which emails and domains can request a verification code. Changes take effect immediately.</p>
 
     <div id="status" class="status" role="status" aria-live="polite"></div>
@@ -60,6 +73,14 @@
       <button type="submit">Add</button>
     </form>
   </main>
+
+  <footer role="contentinfo">
+    <div class="container">
+      <p>Raymond Page &middot; <a href="index.html">Résumé</a></p>
+    </div>
+  </footer>
+
+  <script src="nav.js"></script>
 
   <script>
     (function () {

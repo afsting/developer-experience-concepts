@@ -185,6 +185,15 @@
             if (!response.ok) {
               throw new Error('invalid');
             }
+            return response.json().catch(function () { return {}; });
+          })
+          .then(function (data) {
+            // Used only by nav.js to decide whether to show the Admin nav
+            // link. Not a security boundary - admin.html and the /admin
+            // API both re-check the signed session cookie server-side.
+            try {
+              window.localStorage.setItem('isAdmin', data && data.admin ? 'true' : 'false');
+            } catch (e) { /* ignore storage errors (e.g. private browsing) */ }
             window.location.href = '/';
           })
           .catch(function () {

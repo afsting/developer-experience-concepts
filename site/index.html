@@ -7,22 +7,26 @@
   <title>Raymond Page – Developer Experience</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-page="resume">
   <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <div class="top-nav-bar">
+    <div class="container">
+      <nav aria-label="Feature navigation" id="global-nav"></nav>
+    </div>
+  </div>
 
   <header role="banner">
     <div class="container">
       <h1 id="site-name">Raymond Page</h1>
       <p class="subtitle" id="site-title">Software Engineer / IS Manager</p>
-      <nav aria-label="Site navigation">
+      <nav class="page-nav" aria-label="Page navigation">
         <ul>
           <li><a href="#summary">Summary</a></li>
           <li><a href="#competencies">Competencies</a></li>
           <li><a href="#highlights">Highlights</a></li>
           <li><a href="#experience">Experience</a></li>
           <li><a href="#education">Education</a></li>
-          <li><a href="dora-metrics.html">DORA Metrics</a></li>
-          <li><a href="how-it-was-built.html">How This Was Built</a></li>
         </ul>
       </nav>
     </div>
@@ -70,10 +74,11 @@
 
   <footer role="contentinfo">
     <div class="container">
-      <p>Raymond Page &middot; <a href="mailto:" id="footer-email">Contact via email</a> &middot; <a href="dora-metrics.html">DORA Metrics</a> &middot; <a href="how-it-was-built.html">How This Was Built</a></p>
+      <p>Raymond Page &middot; <a href="mailto:" id="footer-email">Contact via email</a></p>
     </div>
   </footer>
 
+  <script src="nav.js"></script>
   <script src="build.js"></script>
 </body>
 </html>
