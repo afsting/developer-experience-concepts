@@ -26,6 +26,7 @@
           <li><a href="#architecture">Architecture</a></li>
           <li><a href="#cicd">CI/CD Pipeline</a></li>
           <li><a href="#content-architecture">Content Architecture</a></li>
+          <li><a href="#golden-path">Golden-Path Demo</a></li>
           <li><a href="#ai-assisted">AI-Assisted Build</a></li>
           <li><a href="#cost">Estimated Cost</a></li>
           <li><a href="#custom-domain">Custom Domain</a></li>
@@ -140,6 +141,26 @@
       decoupled from the <em>how</em> (template), so authors don't need to understand
       the rendering layer to update content.
     </p>
+
+    <h2 id="golden-path">Golden-Path / Internal Developer Platform Demo</h2>
+    <p>
+      Beyond the static-site architecture itself, this repo demonstrates two
+      concrete, low-cost IDP practices: it's enabled as a GitHub
+      <strong>template repository</strong> (a literal "use this template"
+      clone-and-go starting point, not just a description of one), and it
+      ships a <code>catalog-info.yaml</code> at the repo root — Backstage's
+      service-catalog descriptor format — describing this service's owner,
+      links, and lifecycle stage. Neither requires running a full IDP
+      (Backstage, Port, Cortex, etc.) to be a valid, inspectable artifact.
+    </p>
+    <div class="callout">
+      <strong>Grounded in real experience:</strong> This mirrors work already
+      done at scale — one of the first templates onboarded to Mutual of
+      Omaha's Common Technology Platform Service Portal (CTPSP) was a
+      MuleSoft API template Raymond authored, which remains heavily used
+      today and continues to save developers significant time baselining
+      new MuleSoft APIs.
+    </div>
 
     <h2 id="ai-assisted">AI-Assisted Build Process</h2>
     <h3>What Was AI-Assisted</h3>
