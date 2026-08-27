@@ -7,33 +7,29 @@
   <title>How This Was Built – Raymond Page</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-page="how-it-was-built">
+<body data-page="how-it-was-built" class="has-side-nav">
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <div class="top-nav-bar">
-    <div class="container">
-      <nav aria-label="Feature navigation" id="global-nav"></nav>
-    </div>
-  </div>
+  <nav class="side-nav" aria-label="Page navigation">
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#cicd">CI/CD Pipeline</a></li>
+      <li><a href="#content-architecture">Content Architecture</a></li>
+      <li><a href="#golden-path">Golden-Path Demo</a></li>
+      <li><a href="#devsecops">DevSecOps</a></li>
+      <li><a href="#ai-assisted">AI-Assisted Build</a></li>
+      <li><a href="#cost">Estimated Cost</a></li>
+      <li><a href="#custom-domain">Custom Domain</a></li>
+      <li><a href="#repo-structure">Repo Structure</a></li>
+    </ul>
+  </nav>
 
   <header role="banner">
     <div class="container">
       <h1 id="site-name"><a href="index.html" style="color:inherit;text-decoration:none;">Raymond Page</a></h1>
       <p class="subtitle">How This Was Built</p>
-      <nav class="page-nav" aria-label="Page navigation">
-        <ul>
-          <li><a href="#overview">Overview</a></li>
-          <li><a href="#architecture">Architecture</a></li>
-          <li><a href="#cicd">CI/CD Pipeline</a></li>
-          <li><a href="#content-architecture">Content Architecture</a></li>
-          <li><a href="#golden-path">Golden-Path Demo</a></li>
-          <li><a href="#devsecops">DevSecOps</a></li>
-          <li><a href="#ai-assisted">AI-Assisted Build</a></li>
-          <li><a href="#cost">Estimated Cost</a></li>
-          <li><a href="#custom-domain">Custom Domain</a></li>
-          <li><a href="#repo-structure">Repo Structure</a></li>
-        </ul>
-      </nav>
+      <nav aria-label="Feature navigation" id="global-nav" class="feature-nav"></nav>
     </div>
   </header>
 

@@ -1,7 +1,9 @@
 // Shared global (top-level) navigation, rendered identically into every
-// page's `#global-nav` mount point so feature nav only needs to change in
-// one place. Page-specific sub-navigation (the second nav row) stays
-// hardcoded in each page's own HTML, since it's unique to that page anyway.
+// page's `#global-nav` mount point (inside the header) so feature nav only
+// needs to change in one place. Page-specific sub-navigation (in-page
+// section jump links) is rendered as a fixed left-edge `.side-nav` and
+// stays hardcoded in each page's own HTML, since it's unique to that page
+// anyway.
 (function () {
   'use strict';
 

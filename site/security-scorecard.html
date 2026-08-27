@@ -7,26 +7,22 @@
   <title>Security Scorecard – Raymond Page</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-page="security-scorecard">
+<body data-page="security-scorecard" class="has-side-nav">
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <div class="top-nav-bar">
-    <div class="container">
-      <nav aria-label="Feature navigation" id="global-nav"></nav>
-    </div>
-  </div>
+  <nav class="side-nav" aria-label="Page navigation">
+    <ul>
+      <li><a href="#code-scanning">Code Scanning</a></li>
+      <li><a href="#dependabot">Dependabot</a></li>
+      <li><a href="#npm-audit">npm audit</a></li>
+    </ul>
+  </nav>
 
   <header role="banner">
     <div class="container">
       <h1 id="site-name"><a href="index.html" style="color:inherit;text-decoration:none;">Raymond Page</a></h1>
       <p class="subtitle">Security Scorecard</p>
-      <nav class="page-nav" aria-label="Page navigation">
-        <ul>
-          <li><a href="#code-scanning">Code Scanning</a></li>
-          <li><a href="#dependabot">Dependabot</a></li>
-          <li><a href="#npm-audit">npm audit</a></li>
-        </ul>
-      </nav>
+      <nav aria-label="Feature navigation" id="global-nav" class="feature-nav"></nav>
     </div>
   </header>
 
