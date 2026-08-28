@@ -472,10 +472,11 @@ Plan:
       full 5x4 grid with bullets, side-nav anchors).
 - [x] **Download PDF button** (user request 2026-08-28): a hiring
       manager should be able to download a nicely formatted copy.
-      Static, pre-generated PDF (`site/100-day-plan.pdf`, ~100KB,
-      landscape, 7 pages) linked via a `<a download>` button — not
-      generated on the fly, matches the "static page" nature of this
-      feature.
+      Static, pre-generated PDF (`site/100-day-plan.pdf`, ~65KB,
+      letter portrait, 4 pages — see iteration history below; started
+      landscape/7 pages, ended portrait/4 pages) linked via a
+      `<a download>` button — not generated on the fly, matches the
+      "static page" nature of this feature.
       - Print-specific CSS lives inline in `100-day-plan.html` (scoped to
         this page only, not `styles.css`, so it doesn't affect print
         behavior elsewhere): `@page { size: letter; margin: 0.6in; }`
@@ -564,6 +565,14 @@ Plan:
         `emulateMediaType('print')`), not just visual inspection —
         confirmed bullets now compute to exactly 14.667px = 11pt. Page
         count now 6.
+      - **Final sizing pass** (user feedback 2026-08-28 — the verified
+        11pt still read as too large on a printed page): dropped
+        `.print-plan-col li` to `10px !important` (verified via direct
+        PDF character-extraction with `pdfplumber`, not just CSS
+        inspection, that the embedded glyphs are exactly 7.5pt — 10px
+        was briefly tried at `8px`/6pt per request, then reverted back
+        to `10px` as "a little too small"). Final shipped state:
+        10px/7.5pt body text, 4 pages.
       - **Found and fixed a pre-existing responsive layout bug** while
         building this: `body.has-side-nav > main` had no `min-width: 0`,
         and `.container` had no explicit `width: 100%` — so a grid item

@@ -57,7 +57,7 @@
       <div class="plan-table-wrapper">
         <table class="plan-table">
           <thead>
-            <tr><th scope="col"></th>${headerCells}</tr>
+            <tr><th scope="col">Focus area</th>${headerCells}</tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
@@ -140,7 +140,9 @@
     .then(render)
     .catch(function (err) {
       console.error('100-day plan could not be loaded.', err);
-      const el = document.getElementById('plan-grid');
-      if (el) el.textContent = 'Plan data is not available yet.';
+      const framing = document.getElementById('plan-framing');
+      if (framing) framing.textContent = 'Plan data is not available yet.';
+      const grid = document.getElementById('plan-grid');
+      if (grid) grid.textContent = 'Plan data is not available yet.';
     });
 }());
