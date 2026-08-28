@@ -422,6 +422,48 @@ that extend the existing pipeline:
       rather than minting a third role, since the access pattern
       (overwrite one named object, no `cdk deploy`) is identical.
 
+### 5. "My 100-Day Plan" page — people-leadership pillar
+
+A mentor shared an example 100-day plan (Excel, in `.tmp/`, gitignored —
+**never commit or reference the original file**; it belongs to the
+mentor and may reflect employer-internal system/tool names). Idea: build
+a genericized version of *my own* 100-day plan, informed by that
+structure, as a public page — directly demonstrates the "people
+leadership" pillar of the JD (stakeholder relationships, org onboarding
+approach, roadmap-building cadence), same spirit as the DORA/Security
+scorecards but for leadership practice instead of engineering metrics.
+
+Mentor example's structure worth reusing (genericized, not copied
+verbatim):
+- **Time columns:** Pre-Start, Days 0-30, Days 31-60, Days 61-100.
+- **Focus-area rows:** Baseline, People, Process, Technology, Personal.
+- Each cell is a short list of concrete actions/goals for that
+  intersection (e.g. People x Days 0-30: "learn leadership/stakeholder
+  group", "initial 1:1s").
+
+Plan:
+- [ ] Get the user's own plan content (this needs to be written by the
+      user, not fabricated — I don't have their actual goals/context).
+      Sanitize for public consumption: no employer-specific system names
+      (e.g. internal tool names, internal team names), no names of real
+      people/mentors, nothing that reads as confidential org strategy.
+- [ ] Model the data the same way as the rest of the site — a small JSON
+      structure (extend `site/content.json` or add a sibling file) with
+      time-period x focus-area cells, rendered by `build.js` (or a new
+      dedicated script matching the `dora-metrics.js`/
+      `security-scorecard.js` pattern) into a new page,
+      e.g. `site/100-day-plan.html`.
+- [ ] Add it to the feature nav (`site/nav.js`) and the left-edge
+      side-nav pattern already used by `how-it-was-built.html` /
+      `dora-metrics.html` / `security-scorecard.html` (section anchors
+      per focus area or time period).
+- [ ] Add a short framing paragraph distinguishing "this is my own plan,
+      inspired by a mentor's format" from presenting the mentor's actual
+      content as mine.
+- [ ] No infra changes expected (pure content + one new static page),
+      so this is a cheap, low-risk feature to slot in whenever there's
+      spare time/budget.
+
 ## Nice-to-haves / "demonstrate more DX practices"
 
 - [x] Add a LICENSE (all rights reserved) and README note clarifying the
