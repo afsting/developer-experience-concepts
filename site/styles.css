@@ -80,6 +80,12 @@ body {
   padding: 0 var(--space-sm);
 }
 
+/* Wider content column for pages with content that needs more room
+   (e.g. the 100-day-plan grid) than the site's normal reading width. */
+.container.wide {
+  max-width: 1000px;
+}
+
 /* ============================================================
    Header
    ============================================================ */
