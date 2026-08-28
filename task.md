@@ -442,27 +442,147 @@ verbatim):
   group", "initial 1:1s").
 
 Plan:
-- [ ] Get the user's own plan content (this needs to be written by the
-      user, not fabricated — I don't have their actual goals/context).
-      Sanitize for public consumption: no employer-specific system names
-      (e.g. internal tool names, internal team names), no names of real
-      people/mentors, nothing that reads as confidential org strategy.
-- [ ] Model the data the same way as the rest of the site — a small JSON
-      structure (extend `site/content.json` or add a sibling file) with
-      time-period x focus-area cells, rendered by `build.js` (or a new
-      dedicated script matching the `dora-metrics.js`/
-      `security-scorecard.js` pattern) into a new page,
-      e.g. `site/100-day-plan.html`.
-- [ ] Add it to the feature nav (`site/nav.js`) and the left-edge
-      side-nav pattern already used by `how-it-was-built.html` /
-      `dora-metrics.html` / `security-scorecard.html` (section anchors
-      per focus area or time period).
-- [ ] Add a short framing paragraph distinguishing "this is my own plan,
-      inspired by a mentor's format" from presenting the mentor's actual
-      content as mine.
-- [ ] No infra changes expected (pure content + one new static page),
-      so this is a cheap, low-risk feature to slot in whenever there's
-      spare time/budget.
+- [x] Get the user's own plan content. Drafted from the target JD
+      (`.tmp/IS Manager Position.docx`, gitignored — never committed) and
+      resume, genericized: no names from the JD (hiring manager/recruiter),
+      no req number/grade/salary, no employer-exclusive internal tool
+      names. Content covers all 5 focus areas x 4 time periods, grounded in
+      the JD's three pillars (DevEx/IDP, Engineering Enablement/DORA-SEI,
+      People Leadership) plus AI-assisted engineering. User to review/edit
+      for accuracy before this is considered final.
+- [x] Modeled as a sibling JSON file `site/100-day-plan.json`
+      (hand-authored, git-tracked — unlike the generated
+      dora-metrics.json/security-scorecard.json, this one isn't
+      gitignored), rendered by a new dedicated `site/100-day-plan.js`
+      into `site/100-day-plan.html`, same "content as data" pattern as
+      `dora-metrics.js`.
+- [x] Added to the feature nav (`site/nav.js`) and the left-edge side-nav
+      pattern (section anchors per focus area: Baseline/People/Process/
+      Technology/Personal).
+- [x] Added a framing paragraph (rendered from `data.framing` in the
+      JSON) plus a callout noting this reflects the user's own approach,
+      not a specific employer's internal strategy/tooling/org structure.
+      No public mention of the mentor or the mentor-provided example
+      (per user request 2026-08-28) — that context stays in this
+      planning doc only.
+- [x] No infra changes — pure content + one new static page. Verified
+      locally: served `site/` via `python -m http.server`, confirmed
+      `100-day-plan.json` is valid JSON, and screenshotted
+      `100-day-plan.html` rendering correctly (header/nav, framing text,
+      full 5x4 grid with bullets, side-nav anchors).
+- [x] **Download PDF button** (user request 2026-08-28): a hiring
+      manager should be able to download a nicely formatted copy.
+      Static, pre-generated PDF (`site/100-day-plan.pdf`, ~65KB,
+      letter portrait, 4 pages — see iteration history below; started
+      landscape/7 pages, ended portrait/4 pages) linked via a
+      `<a download>` button — not generated on the fly, matches the
+      "static page" nature of this feature.
+      - Print-specific CSS lives inline in `100-day-plan.html` (scoped to
+        this page only, not `styles.css`, so it doesn't affect print
+        behavior elsewhere): `@page { size: letter; margin: 0.6in; }`
+        (portrait — user feedback 2026-08-28: initial landscape choice
+        made sense for the on-screen 5-column matrix table, but the
+        print-only per-focus-area section layout only needs 4 narrower
+        columns, so portrait fits fine), hides side-nav/feature-nav/
+        footer/the download button itself, adds a print-only source-URL
+        footer line.
+      - Print renders each focus area as its own compact section (4
+        columns: Pre-Start/Days 0-30/Days 31-60/Days 61-100, focus-area
+        name as a heading rather than a 5th table column) instead of
+        reusing the on-screen big matrix table — a single wide table
+        forced browsers to split rows mid-bullet-list across page
+        breaks, leaving mostly-blank continuation pages. Each section
+        has `break-inside: avoid` so it stays atomic when it fits on one
+        page; an unusually long section (e.g. Baseline's Days 0-30
+        column) can still spill to the next page, which is normal.
+        Rendered by `renderPrintSections()` in `100-day-plan.js`
+        (separate from `renderGrid()`, which still renders the on-screen
+        table).
+      - Generated via a headless-Chromium pass driven by `puppeteer-core`
+        (CDP `page.pdf({ preferCSSPageSize: true, displayHeaderFooter:
+        false, printBackground: true })`) against the locally-served
+        page. Plain `chrome --print-to-pdf` CLI flags were tried first
+        but wouldn't reliably suppress the browser's default
+        date/title/URL header-footer or honor the `@page` landscape
+        rule — CDP's `printToPDF` gives direct control instead.
+        `puppeteer-core` was installed ad hoc in a scratch dir (not added
+        to the repo — this is a manual, infrequent, dev-time step, and
+        keeping it out preserves the "dependency-free" convention the
+        committed `scripts/*.mjs` follow), pointed at the existing local
+        Edge/Chrome install via `executablePath` (no bundled Chromium
+        download).
+      - **To regenerate** after editing `100-day-plan.json`: serve
+        `site/` locally (`python -m http.server` from that directory),
+        `npm install puppeteer-core` in a scratch dir, run a short script
+        that launches Edge/Chrome headless, navigates to
+        `100-day-plan.html`, waits for the table to render, and calls
+        `page.pdf(...)` as above, then copy the output over
+        `site/100-day-plan.pdf`. No committed script for this — it's
+        infrequent enough (content changes rarely) that hand-running it
+        each time was preferred over adding a new devDependency.
+      - **Follow-up polish** (user feedback 2026-08-28): switched
+        `@page` from landscape back to portrait (the per-section print
+        layout only needs 4 narrower columns, so landscape's extra width
+        wasn't needed); fixed the title page showing "My 100-Day Plan"
+        twice (header subtitle is print-only "IS Manager – Developer
+        Experience (DevEx) Applicant" via a `.screen-only-subtitle` /
+        `.print-only` pair, on-screen subtitle unchanged); added a
+        print-only marketing section (`renderPrintMarketing()` in
+        `100-day-plan.js`, fetches `content.json` alongside the plan
+        data) — resume summary + top 4 highlight cards — to fill what
+        was dead whitespace on the title page; added `break-inside:
+        avoid` to `#plan-framing`/`.callout`/`#print-marketing` after
+        discovering the callout box itself was splitting mid-sentence
+        across a page break; tightened print font sizes/margins
+        throughout (table text down to 0.68rem, section/callout margins
+        cut roughly in half) to reduce page count (9 → 7 → 6) and get
+        the Baseline section's page break to land cleanly.
+      - **Further polish** (user feedback 2026-08-28): table text
+        capped smaller (0.6rem body / 0.58rem column labels, both well
+        under a 14pt ceiling) and light gray borders added around each
+        print column (`.print-plan-col { border: 1px solid
+        var(--color-border) }`) so the print layout reads as an actual
+        bordered table. The border/padding overhead nudged page count
+        back up slightly (6 → 7) since it eats a bit of each column's
+        usable width; not re-chased further given the marginal
+        token-cost/benefit at this point.
+      - **Bug fix** (user feedback 2026-08-28 — "no way that's 8pt,
+        look how big it is"): user was right. A global rule in
+        `styles.css` (`.prose li { font-size: var(--font-size-base) }`,
+        added way back for the on-screen résumé/experience bullets)
+        sets font-size directly on every `<li>` in any `.prose`
+        container — including `#plan-grid-print`'s bullets, since
+        `main` has class `prose`. A property set directly on an element
+        always wins over a value inherited from an ancestor, so setting
+        `font-size` on `.print-plan-col ul` had no effect: the bullets
+        were silently rendering at 16px (12pt) regardless of what was
+        specified there, explaining why the earlier 0.6rem reduction
+        looked unchanged. Fixed by setting `font-size: 11pt !important`
+        directly on `.print-plan-col li` (specificity-tied with
+        `.prose li`, so `!important` avoids relying on source-order
+        luck). Verified via direct computed-style extraction
+        (`getComputedStyle` in a headless page with
+        `emulateMediaType('print')`), not just visual inspection —
+        confirmed bullets now compute to exactly 14.667px = 11pt. Page
+        count now 6.
+      - **Final sizing pass** (user feedback 2026-08-28 — the verified
+        11pt still read as too large on a printed page): dropped
+        `.print-plan-col li` to `10px !important` (verified via direct
+        PDF character-extraction with `pdfplumber`, not just CSS
+        inspection, that the embedded glyphs are exactly 7.5pt — 10px
+        was briefly tried at `8px`/6pt per request, then reverted back
+        to `10px` as "a little too small"). Final shipped state:
+        10px/7.5pt body text, 4 pages.
+      - **Found and fixed a pre-existing responsive layout bug** while
+        building this: `body.has-side-nav > main` had no `min-width: 0`,
+        and `.container` had no explicit `width: 100%` — so a grid item
+        containing any wide content (here, the plan table, even though
+        wrapped in its own `overflow-x: auto`) could inflate the whole
+        single-column grid track past the viewport, forcing the *entire
+        page* to scroll horizontally instead of just the wide element
+        scrolling within its own wrapper. Fixed both properties in
+        `styles.css` (`body.has-side-nav > main` and `.container`) —
+        benign on every other existing page, necessary for this one.
 
 ## Nice-to-haves / "demonstrate more DX practices"
 

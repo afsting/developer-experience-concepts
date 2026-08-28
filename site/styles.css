@@ -74,6 +74,7 @@ body {
    Layout
    ============================================================ */
 .container {
+  width: 100%;
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 0 var(--space-sm);
@@ -151,6 +152,12 @@ body.has-side-nav > header {
 
 body.has-side-nav > main {
   grid-area: main;
+  /* Without this, a grid item's automatic minimum size is its content's
+     min-content size — so a wide-content page (e.g. a table wrapped in
+     its own overflow-x:auto container) can still inflate this whole
+     column and force the page itself to scroll horizontally, instead of
+     just the table scrolling within its own wrapper as intended. */
+  min-width: 0;
 }
 
 body.has-side-nav > footer {
@@ -547,6 +554,71 @@ footer a:hover {
 .runs-table th {
   color: var(--color-text-muted);
   font-weight: 600;
+}
+
+/* ============================================================
+   100-day plan grid
+   ============================================================ */
+.prose-narrow {
+  max-width: 720px;
+}
+
+.plan-table-wrapper {
+  overflow-x: auto;
+  margin: var(--space-md) 0 var(--space-lg);
+}
+
+.plan-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.plan-table th,
+.plan-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+}
+
+.plan-table thead th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  background: var(--color-surface);
+  white-space: nowrap;
+}
+
+.plan-table tbody th {
+  background: var(--color-surface);
+  width: 160px;
+}
+
+.plan-row-label {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.plan-row-desc {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+  line-height: var(--line-height);
+}
+
+.plan-table td ul {
+  padding-left: 1.1rem;
+  margin: 0;
+}
+
+.plan-table td li {
+  margin-bottom: 0.5rem;
+  line-height: var(--line-height);
+}
+
+.plan-table td li:last-child {
+  margin-bottom: 0;
 }
 
 /* ============================================================
