@@ -11,6 +11,7 @@
     { page: 'resume', href: 'index.html', label: 'Resume' },
     { page: 'dora-metrics', href: 'dora-metrics.html', label: 'DORA Metrics' },
     { page: 'security-scorecard', href: 'security-scorecard.html', label: 'Security Scorecard' },
+    { page: '100-day-plan', href: '100-day-plan.html', label: '100-Day Plan' },
     { page: 'how-it-was-built', href: 'how-it-was-built.html', label: 'How This Was Built' },
   ];
 
