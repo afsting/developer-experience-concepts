@@ -20,6 +20,10 @@ pids
 docs/
 *.pid.lock
 
+# Scratch/working files (e.g. personal planning docs, drafts) — never
+# meant to be committed or pushed.
+/.tmp/*
+
 # DORA metrics scorecard data — regenerated weekly (and on-demand) by
 # .github/workflows/dora-metrics.yml straight from the GitHub Actions API
 # and written directly to the deployed S3 bucket. Fully reproducible from
