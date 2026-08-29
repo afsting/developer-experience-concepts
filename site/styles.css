@@ -213,6 +213,10 @@ body.has-side-nav > footer {
       "footer";
   }
 
+  .plan-table-wrapper {
+    overflow-x: auto;
+  }
+
   .side-nav {
     display: none;
   }
@@ -570,7 +574,12 @@ footer a:hover {
 }
 
 .plan-table-wrapper {
-  overflow-x: auto;
+  /* overflow-x:auto only applies below the side-nav collapse breakpoint
+     (see the @media (max-width: 900px) block) — any non-visible overflow
+     here would make this wrapper (not the page) the scrolling ancestor
+     for position:sticky, and since the wrapper never scrolls
+     independently (its height always matches its content), the sticky
+     thead below would never actually stick to the viewport. */
   margin: var(--space-md) 0 var(--space-lg);
 }
 
@@ -608,6 +617,10 @@ footer a:hover {
   font-weight: 600;
   background: var(--color-surface);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: 0 1px var(--color-border);
 }
 
 .plan-table tbody th {
