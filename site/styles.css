@@ -576,7 +576,16 @@ footer a:hover {
 
 .plan-table {
   width: 100%;
-  min-width: 900px;
+  /* auto layout sizes columns to their longest unbreakable content and
+     won't shrink the table below that sum, which is what forced this
+     table into horizontal scroll even when its wrapper had plenty of
+     room. Fixed layout sizes columns from the header row instead (see
+     thead th:first-child below) and lets cell content wrap freely, so
+     the table fits the wrapper's actual width down to phone sizes.
+     The min-width is just a legibility floor below which 5 columns
+     can't wrap sensibly (falls back to the wrapper's own scroll). */
+  table-layout: fixed;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: var(--font-size-sm);
 }
@@ -587,6 +596,11 @@ footer a:hover {
   vertical-align: top;
   padding: var(--space-sm);
   border: 1px solid var(--color-border);
+  overflow-wrap: break-word;
+}
+
+.plan-table thead th:first-child {
+  width: 160px;
 }
 
 .plan-table thead th {
