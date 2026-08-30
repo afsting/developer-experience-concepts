@@ -49,6 +49,192 @@ status check, no force-pushes/deletions, enforced for admins too).
       (decision was to stay public + add a restrictive LICENSE instead,
       see below).
 
+## Site review — competitiveness recommendations (2026-08-30)
+
+Full-site review against the target JD and current resume content.
+**The application closes 2026-09-11 (~12 days)** — items are prioritized
+by JD impact per unit of effort with that deadline in mind. Biggest
+finding: the JD's Engineering Enablement pillar explicitly includes
+owning an "Engineering Dojo" (workshops, learning paths, labs, office
+hours, coaching) and facilitating the Engineering Community of Practice
+— and the site currently has **zero** direct representation of either,
+even though the resume's strongest enablement stories (MuleSoft Days
+training program with 53+ documented participants; founding CoPs for
+AI/AR-VR/cloud) map to them almost one-to-one. Meanwhile the resume
+page's framing undersells: the header subtitle and meta description
+still say "Software Engineer / IS Manager" rather than the leadership
+positioning, and the competencies list omits the JD's own scan keywords
+(DORA/SEI, golden paths, IDP/service catalog, DevSecOps, GitHub
+Actions) that the rest of the site literally demonstrates.
+
+### P0 — quick wins (hours; do before applying)
+
+- [x] **Fix the resume page's positioning.** `index.html` hardcodes the
+      header subtitle "Software Engineer / IS Manager" (line 26) and a
+      matching meta description; `build.js` never overwrites them, even
+      though `content.json` already carries the stronger headline
+      ("Engineering Leader | Developer Experience | AI Enablement |
+      Platform Strategy"). Render the subtitle from `content.json`'s
+      `title` field (content-as-data consistency win too) and update the
+      meta description to match. First impressions: this is the first
+      line a hiring manager reads under the name.
+      **Done (2026-08-30):** `build.js` now has a `renderHeader()` step
+      that sets `#site-title` from `data.title`; the static fallback
+      text and meta description in `index.html` updated to match.
+- [x] **Align competencies with the JD's vocabulary.** Add to
+      `content.json` competencies (and consider mirroring into the
+      source resume): DORA Metrics & SEI Programs, Internal Developer
+      Platform / Service Catalog, Golden Paths & Templates, DevSecOps,
+      GitHub Enterprise & GitHub Actions, Engineering Enablement &
+      Training Programs. The site *demonstrates* all of these but the
+      resume page never *says* them — humans and ATS scanners both
+      match on the words. Trim lower-relevance items if the grid gets
+      crowded (e.g. fold "MuleSoft Integration Architecture" into
+      "API-Led Architecture").
+      **Done (2026-08-30):** all six added; folded "MuleSoft Integration
+      Architecture" into "API-Led Architecture & MuleSoft Integration"
+      and folded "Developer Enablement" into the new "Engineering
+      Enablement & Training Programs" to avoid a near-duplicate — net
+      16 competencies, verified rendering in-browser.
+- [x] **Retitle the enablement highlight cards toward the Dojo.** The
+      "Communities of Practice" highlight is good; add or reframe a
+      card as "Engineering Enablement Programs" leading with MuleSoft
+      Days (self-service curriculum, 53+ participants, still in organic
+      use) — the JD's dojo bullet is a near-verbatim description of
+      that program, and right now it's buried mid-bullet-list in the
+      experience section.
+      **Done (2026-08-30):** added as a new 5th highlight card (kept the
+      existing four rather than replacing one), positioned right after
+      "Strategic Enterprise Initiative Leadership".
+- [x] **Add favicon + Open Graph/Twitter meta to every page.** No page
+      has either — a link shared with a recruiter or hiring manager
+      unfurls with no title/description/image in Slack/Teams/LinkedIn.
+      Small, high-visibility polish that itself demonstrates attention
+      to the "developer-facing experience" the JD cares about.
+      **Done (2026-08-30):** inline SVG data-URI favicon (navy "RP"
+      monogram in the site's own accent color, no extra asset file) on
+      all 8 HTML pages. og:type/title/description/url +
+      twitter:card=summary/title/description on the 5 public content
+      pages (index, how-it-was-built, dora-metrics, security-scorecard,
+      100-day-plan); favicon only (no OG) on 404/login/admin since
+      those aren't meant to be shared/unfurled. No og:image yet — would
+      need an actual designed raster asset, out of scope for a quick
+      win; `summary` card type doesn't require one.
+- [ ] **Reconsider the public contact address.** `content.json`'s
+      `email` (and the footer `mailto:`) is the current employer's
+      address (`raymond.page@mutualofomaha.com`). For a job-search
+      portfolio this is worth a second look: it may read oddly to a
+      hiring manager, could brush up against an employer's
+      acceptable-use policy for outside job searching, and won't work
+      once employment there ends. Consider adding a personal/
+      professional address as the primary public contact.
+
+### P1 — features (days; highest JD alignment per effort)
+
+- [ ] **"Engineering Enablement" page (the Dojo pillar).** New static
+      page, same content-as-data pattern (`enablement.json` +
+      dedicated JS): a genericized sample learning path / workshop
+      curriculum — e.g. "From first commit to production on the golden
+      path" modeled on the MuleSoft Days structure (modules, formats,
+      target audiences, how effectiveness is measured), plus a short
+      section on office-hours / coaching cadence. No infra changes.
+      This closes the single biggest JD-coverage gap on the site and
+      arguably now outranks the Bedrock chat in build order.
+- [ ] **Community of Practice playbook section or page.** JD:
+      "Facilitate the Engineering Community of Practice." A one-page
+      genericized playbook — founding a CoP, meeting formats, topic
+      pipeline, measuring engagement, sustaining momentum — drawn from
+      actually having founded three. A differentiator most candidates
+      cannot produce; pairs naturally with (or lives inside) the
+      Enablement page above.
+- [ ] **"Time to first deploy" onboarding claim on the golden-path
+      section.** The JD's success measures include "faster onboarding."
+      The template repo already exists; document (or script as a smoke
+      test) the elapsed time from "Use this template" to a live
+      CloudFront URL and state it on `how-it-was-built.html` (e.g.
+      "under 30 minutes from template to production"). Concrete,
+      measurable, exactly on-message.
+- [ ] **Bedrock AI chat (feature 2 below) — reassessed.** Still the
+      AI-pillar showpiece, but the biggest lift on the list. If it
+      can't ship comfortably before 2026-09-11, do the Enablement page
+      first and strengthen the AI story cheaply instead: expand the
+      how-it-was-built AI section with the concrete practices this
+      repo actually uses (copilot-instructions.md as living context,
+      task.md as a persistent AI-collaboration planning doc, AI-driven
+      review loops) — that's a direct answer to the JD's "evaluating
+      and promoting AI-assisted engineering practices" line, with
+      receipts. The chat can then land after the application as an
+      interview talking point.
+
+### P2 — post-application polish / interview ammunition
+
+- [ ] **Name the governance story.** JD: "establish governance and
+      lifecycle management processes to ensure platform content remains
+      current." The site already *does* this — daily scheduled metric
+      refreshes, content-as-data with hand-curated public subset,
+      Dependabot, CodeQL cron, `catalog-info.yaml` — but never names
+      it. Add a short "Governance & content freshness" subsection to
+      `how-it-was-built.html` tying those mechanisms together.
+- [ ] PR template referencing the CDK-diff/review checklist and a
+      post-deploy smoke test (existing nice-to-haves below) — small,
+      cheap DevEx proof points.
+- [ ] Consider a lightweight "who's visited" indicator for your own
+      awareness (CloudFront standard logs → small summary), given the
+      OTP gate already identifies visitors by email. Privacy note
+      required if surfaced anywhere; purely optional.
+
+### Further "showcase what's possible" ideas (2026-08-30, second pass)
+
+Additional leverage ideas beyond the JD-gap fixes above, grouped by
+what each one proves. Recommended picks for the pre-2026-09-11 window:
+the Engineering Health rollup, the devcontainer, and ADRs — the rest
+are post-application or interview-prep material.
+
+- [ ] **Engineering Health rollup page.** The JD repeatedly says
+      "engineering health scorecards and insights" — the site has DORA
+      and Security as separate pages. A small rollup (or tile row on
+      the resume page) grading the site itself — delivery (DORA
+      elite/high/medium/low bands), security posture, content
+      freshness, uptime — is literally the artifact the JD describes
+      owning. Mostly a rendering exercise over JSON already published.
+      While in there: annotate the DORA page with the standard
+      benchmark bands, showing fluency with the framework rather than
+      just the raw numbers.
+- [ ] **One-click golden-path environment (`devcontainer.json`).** Add
+      a devcontainer to the template repo so "Use this template" opens
+      straight into a ready Codespace with Node/CDK/AWS tooling
+      preinstalled. Strongest cheap move for the JD's "faster
+      onboarding" success measure — it turns the time-to-first-deploy
+      claim (P1 above) into something a hiring manager can literally
+      click.
+- [ ] **Architecture Decision Records.** The decisions log in this doc
+      already holds the raw material (OIDC over stored keys, CloudFront
+      Functions over Lambda@Edge, squash-merge tradeoffs, SES sandbox
+      workaround). Formalize the big ones as ADRs in-repo and render
+      them on the site — a cheap, recognized governance practice that
+      hits the JD's "standards and governance" language with receipts.
+- [ ] **Working-in-the-open delivery journal.** A page auto-generated
+      from the repo's own merged-PR history (same GitHub-API→S3
+      pattern as the DORA workflow): each PR with title, CDK diff
+      posted, review findings addressed. Demonstrates delivery cadence
+      and review culture live, and doubles as an interview walkthrough
+      ("every change since day one, reviewed and gated").
+- [ ] **Developer feedback loop.** JD mentions "feedback collection"
+      from the developer community. A tiny thumbs-up/down widget per
+      page posting to the existing API Gateway/Lambda/DynamoDB stack —
+      small, but shows instrumenting for feedback by habit, and closes
+      a loop most portfolios won't have.
+- [ ] **Synthetic monitoring / status tile.** Scheduled workflow curls
+      the live site, publishes a status JSON → status tile on the
+      health rollup. Cheap SRE-lite signal; retires the existing
+      "smoke test" nice-to-have at the same time.
+- [ ] **Interview demo script (non-code).** Prepare a walkthrough of
+      the site in JD order — each nav item maps to a pillar: Resume →
+      who; DORA/Security/Health → insights program; 100-Day Plan →
+      people leadership; Enablement page → Dojo; How-It-Was-Built →
+      IDP + AI practices. The site's best use may be as the interview
+      deck; a page-per-pillar narrative makes that deliberate.
+
 ## Planned features — mapped to target job description (IS Manager, DevEx)
 
 The job description this repo is being built to demonstrate emphasizes four
@@ -309,48 +495,114 @@ by instrumenting this repo's own pipeline:
       on the page.
 
 
-### 2. Bedrock AI chat — "ask about my experience"
+### 2. AI assistant applet — sitewide, page-aware ("ask about this page")
 
-Interactive chat backed by an AWS Bedrock agent so site visitors can ask
-questions about skills/experience conversationally. This is the AI-assisted
-engineering demo pillar. Decided scope (2026-08-24): knowledge base limited
-to **`site/content.json` only** (already-public curated content — never the
-raw résumé docx, which contains phone number/city not meant to be public).
-Budget ceiling: **< $20/month**.
+**Redesigned 2026-08-30** (was: standalone chat page backed by a Bedrock
+Agent + Knowledge Base). New shape: a small persistent applet — floating
+button + panel, injected via one shared script — present on **every**
+page, that knows which page the visitor is currently on and answers
+questions grounded in that context. This is the AI-assisted engineering
+demo pillar; the goal is interactive proof, not another page to read.
 
-Architecture: Browser → CloudFront (new `/api/chat` behavior) → API Gateway
-(HTTP API) → Lambda → Bedrock Agent (+ Knowledge Base for RAG over
-`content.json`). A backend is required — static site can't call Bedrock
-directly since it needs signed AWS credentials.
+**Architectural simplification (the key decision):** the site's entire
+public data surface — `content.json`, `dora-metrics.json`,
+`security-scorecard.json`, `100-day-plan.json` — totals well under
+100KB, trivially small relative to any modern model's context window.
+A Bedrock Knowledge Base (RAG) exists to solve "content too large to
+fit in context," which isn't the problem here — and it requires a
+vector store (OpenSearch Serverless has a real always-on minimum that
+would likely blow the budget on its own). **Drop the Agent + Knowledge
+Base entirely.** Call the Bedrock Runtime `Converse` API directly from
+the Lambda, with a system prompt built fresh each request from all four
+JSON files (read from S3 / cached briefly in `/tmp`, since DORA and
+security data refresh daily via existing cron workflows). Fewer moving
+parts to secure, operate, and pay for, with no retrieval-relevance
+failure mode.
+
+Budget ceiling: **< $20/month** (realistically ~$1-2/month at
+portfolio/interview traffic volumes with no KB/vector-store overhead
+and a small model).
+
+Architecture: Browser (applet on every page) → CloudFront (`/api/chat`
+behavior, not cached) → Lambda → Bedrock Runtime `Converse`/
+`ConverseStream`. A backend is required — static site can't call
+Bedrock directly since it needs signed AWS credentials. Sits behind the
+existing OTP session gate, same as the rest of the site.
+
+**Page-awareness:** the applet sends `document.body.dataset.page` (the
+attribute `nav.js` already reads for nav highlighting) with every
+message. The Lambda folds that into the system prompt — *"The visitor
+is currently viewing the Security Scorecard page. Full site data:
+<JSON>. Answer grounded only in this data..."* — and the UI surfaces it
+back visibly (e.g. opening line: *"I can see you're looking at the
+Security Scorecard — ask me anything."*) plus 2-3 hardcoded (not
+AI-generated) suggested-question chips per page. The visible
+page-awareness is the point — it's what makes this a memorable demo
+rather than an invisible backend detail.
+
+**Persistence:** this is a classic multi-page site (full navigation,
+not an SPA), so store the transcript in `sessionStorage` and replay it
+into the applet on each page load, appending a new page-context note
+when the page changes — makes it feel like one assistant following the
+visitor around instead of a chat box that resets on every click.
+
+**Streaming — stretch goal, not a blocker:** Lambda Function URLs
+support native response streaming (`InvokeMode: RESPONSE_STREAM`)
+without needing a WebSocket API Gateway, and CloudFront can front that
+as a custom origin — but CloudFront's handling of chunked/streamed
+responses is the one piece worth prototyping early rather than
+assuming, given the 2026-09-11 deadline. **Ship the plain buffered
+request/response first** (typing indicator → full answer appears);
+layer in streaming later if time allows.
+
+**Model choice:** Claude Haiku via Bedrock over Nova Micro/Lite —
+meaningfully better instruction-following for a small cost bump, and
+at this traffic volume the cost difference is negligible.
+
+**Trust/grounding requirement specific to a job-search tool:** the
+system prompt must require the assistant to always disclose it's an AI
+and always refer to the candidate in third person — never speak as
+him. An assistant that could read as impersonating the candidate to a
+hiring manager is a real trust problem here specifically, beyond the
+generic prompt-injection concerns below.
 
 Security requirements (must-have, not optional, given public exposure):
 
-- [ ] Knowledge base ingests only the curated `content.json` — never the
-      raw docx or anything with phone/address. Re-verify this whenever
-      content.json is edited.
+- [ ] System prompt is built only from the four curated JSON files —
+      never the raw résumé docx or JD, which contain phone/address and
+      employer-internal names/req details not meant to be public.
+      Re-verify whenever any of the four JSON files is edited.
 - [ ] Bedrock Guardrails configured: denied topics, PII filters, and a
       tightly scoped system prompt to resist prompt injection ("ignore
-      previous instructions..." style attacks). Treat all agent output as
-      untrusted before rendering client-side (no raw HTML injection).
-- [ ] API Gateway throttling / usage plan to cap requests per
-      IP/time-window — public chat endpoints are a billing-DoS target.
-- [ ] Small/cheap model choice (e.g. Nova Micro/Lite or Claude Haiku via
-      Bedrock) with a hard max-token cap per response.
+      previous instructions..." style attacks) — including via the
+      page-context value, even though that's app-controlled, not raw
+      user input. Treat all model output as untrusted before rendering
+      client-side (no raw HTML injection).
+- [ ] Rate limiting per **session** (the existing signed OTP cookie is a
+      stronger identity signal than IP alone here) in addition to
+      IP/time-window throttling — public chat endpoints are a
+      billing-DoS target.
+- [ ] Hard max-token cap per response, and a hard cap on messages per
+      session, to bound cost per visitor.
 - [ ] Dedicated least-privilege IAM role for the chat Lambda — scoped to
-      `bedrock:InvokeAgent` on only that agent/alias ARN. Must be a
-      separate role from the GitHub OIDC deploy/diff roles (different
-      trust principal entirely — this role is assumed by Lambda, not
-      GitHub Actions).
+      `bedrock:InvokeModel`/`InvokeModelWithResponseStream` on only the
+      chosen model ARN, plus read-only S3 access to the four JSON
+      objects. Must be a separate role from the GitHub OIDC deploy/diff
+      roles (different trust principal entirely — this role is assumed
+      by Lambda, not GitHub Actions).
 - [ ] CORS locked to the CloudFront domain only, so other sites can't
       embed/drain the endpoint.
-- [ ] AWS Budgets alarm on the Bedrock/Lambda/API Gateway costs specifically
-      (ties into the existing cost-alarm nice-to-have below) — alert well
+- [ ] AWS Budgets alarm on the Bedrock/Lambda costs specifically (ties
+      into the existing cost-alarm nice-to-have below) — alert well
       under the $20/month ceiling so there's room to react.
 - [ ] Feature flag / kill switch (env var read by the Lambda, or a CDK
-      context flag that removes the API Gateway route) to instantly
-      disable the chat without a full redeploy if abused.
-- [ ] No PII in any conversation logging; if logs are kept for debugging,
-      redact and add a one-line privacy note near the chat UI.
+      context flag that removes the CloudFront behavior/route) to
+      instantly disable the applet without a full redeploy if abused.
+- [ ] No PII in any conversation logging; if logs are kept for
+      debugging, redact and add a one-line privacy note in the applet.
+- [ ] Applet is hidden under `@media print` sitewide, so it never
+      appears in the 100-Day Plan's PDF export or any future print
+      output.
 
 ### 3. Golden-path / Internal Developer Platform demo
 
@@ -617,7 +869,7 @@ Plan:
 - GitHub jobs with `environment:` set change the OIDC `sub` claim suffix
   to `:environment:<name>` instead of `:ref:refs/heads/<branch>` — trust
   policies must match whichever one actually applies.
-- Branch protection (required status checks, enforce-admins, no
+- Branch protection (required st  atus checks, enforce-admins, no
   force-push/delete) requires the repo to be public on GitHub Free, or
   GitHub Pro for a private repo. Decided to stay public + rely on an
   explicit LICENSE to discourage scraping/reuse instead of going private.

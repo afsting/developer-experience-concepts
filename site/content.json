@@ -5,18 +5,22 @@
   "linkedin": "https://www.linkedin.com/in/raymond-page",
   "summary": "Engineering leader with 12 years of enterprise software engineering, cloud platform, and developer enablement experience at Mutual of Omaha, preceded by a 26-year U.S. Air Force career progressing from enlisted airman to field grade officer. Proven track record leading cross-functional teams, building shared platform capabilities, driving adoption of engineering standards, and fostering technology communities that improve organizational effectiveness. Recognized within Mutual of Omaha as a technology leader in API-led architecture, MuleSoft, cloud integration, and AI-assisted engineering practices. Focused on helping engineers deliver business outcomes through shared platforms, common patterns, and accessible organizational knowledge.",
   "competencies": [
-    "API-Led Architecture",
-    "MuleSoft Integration Architecture",
+    "API-Led Architecture & MuleSoft Integration",
+    "Internal Developer Platform / Service Catalog",
+    "Golden Paths & Templates",
+    "DORA Metrics & Software Engineering Intelligence (SEI)",
+    "DevSecOps",
     "Cloud Engineering (AWS)",
+    "GitHub Enterprise & GitHub Actions",
     "AI-Assisted & Agentic Software Development",
     "Platform Strategy",
     "Engineering Standards & Reusable Patterns",
+    "Engineering Enablement & Training Programs",
     "Community of Practice Leadership",
     "Agile / SAFe Delivery",
     "Organizational Change & Technology Adoption",
     "Cross-Functional Leadership",
-    "Enterprise Modernization",
-    "Developer Enablement"
+    "Enterprise Modernization"
   ],
   "highlights": [
     {
@@ -26,6 +30,10 @@
     {
       "title": "AI-Enabled Customer Service Delivery",
       "description": "Drove development and productionization of AI-enabled customer service capabilities for the Service AI Enablement initiative, accelerating delivery across customer, policy, billing, claims, and beneficiary functions."
+    },
+    {
+      "title": "Engineering Enablement Programs",
+      "description": "Created and launched a self-service, video-based training curriculum (MuleSoft Days) that strengthened engineering skill development and reinforced golden-path adoption — 53+ documented participants, with continued organic use enterprise-wide."
     },
     {
       "title": "Communities of Practice",
