@@ -69,7 +69,7 @@ Actions) that the rest of the site literally demonstrates.
 
 ### P0 — quick wins (hours; do before applying)
 
-- [ ] **Fix the resume page's positioning.** `index.html` hardcodes the
+- [x] **Fix the resume page's positioning.** `index.html` hardcodes the
       header subtitle "Software Engineer / IS Manager" (line 26) and a
       matching meta description; `build.js` never overwrites them, even
       though `content.json` already carries the stronger headline
