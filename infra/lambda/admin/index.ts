@@ -3,25 +3,9 @@ import { DeleteCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb } from '../common/dynamo';
 import { verifySession } from '../common/session';
 import { getHmacSecret } from '../common/kvsSecret';
+import { getSessionToken, forbidden } from '../common/http';
 
 const ALLOWLIST_TABLE_NAME = process.env.ALLOWLIST_TABLE_NAME!;
-
-function getSessionToken(event: APIGatewayProxyEventV2): string | undefined {
-  for (const cookie of event.cookies ?? []) {
-    const eq = cookie.indexOf('=');
-    if (eq === -1) continue;
-    if (cookie.slice(0, eq) === 'session') return cookie.slice(eq + 1);
-  }
-  return undefined;
-}
-
-function forbidden(): APIGatewayProxyStructuredResultV2 {
-  return {
-    statusCode: 403,
-    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
-    body: JSON.stringify({ message: 'Forbidden.' }),
-  };
-}
 
 export async function handler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> {
   const token = getSessionToken(event);

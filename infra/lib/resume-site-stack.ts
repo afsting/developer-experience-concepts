@@ -6,6 +6,7 @@ import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
@@ -316,6 +317,116 @@ export class ResumeSiteStack extends cdk.Stack {
       resources: [sessionKvs.keyValueStoreArn],
     }));
 
+    // ---- AI assistant applet (sitewide, page-aware chat) ----
+    // Direct Bedrock Runtime `Converse` call, not an Agent + Knowledge
+    // Base — the site's entire public data surface (the four JSON files
+    // below) is small enough to stuff into the prompt directly, so a
+    // vector store (and its always-on cost) buys nothing here. See
+    // task.md feature 2 ("Redesigned 2026-08-30") for the full rationale.
+    const chatSessionTable = new dynamodb.Table(this, 'ChatSessionTable', {
+      partitionKey: { name: 'email', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+    });
+
+    // Guardrail applied to every chat call: PII anonymization plus
+    // standard content filters, including PROMPT_ATTACK — relevant here
+    // specifically because the visitor's current page name is injected
+    // into the prompt alongside their message. Left on the CloudFormation-
+    // managed DRAFT version rather than publishing a numbered
+    // CfnGuardrailVersion — this is a single-environment deployment, so
+    // there's no multi-environment version-pinning need that would justify
+    // the extra publishing step.
+    const chatGuardrail = new bedrock.CfnGuardrail(this, 'ChatGuardrail', {
+      name: `${this.stackName}-chat-guardrail`,
+      blockedInputMessaging: 'I can\'t help with that. Ask me about Raymond\'s experience or this site instead.',
+      blockedOutputsMessaging: 'Sorry, I can\'t provide that response. Try rephrasing your question.',
+      contentPolicyConfig: {
+        filtersConfig: [
+          { type: 'HATE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+          { type: 'INSULTS', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+          { type: 'SEXUAL', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+          { type: 'VIOLENCE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+          { type: 'MISCONDUCT', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+          { type: 'PROMPT_ATTACK', inputStrength: 'MEDIUM', outputStrength: 'NONE' },
+        ],
+      },
+      sensitiveInformationPolicyConfig: {
+        piiEntitiesConfig: [
+          { type: 'EMAIL', action: 'ANONYMIZE' },
+          { type: 'PHONE', action: 'ANONYMIZE' },
+          { type: 'US_SOCIAL_SECURITY_NUMBER', action: 'BLOCK' },
+          { type: 'NAME', action: 'ANONYMIZE' },
+          { type: 'ADDRESS', action: 'ANONYMIZE' },
+        ],
+      },
+    });
+
+    // Claude Haiku via Bedrock — small/cheap model, more than sufficient
+    // for short grounded Q&A over a few KB of site data.
+    //
+    // Invoked via its US cross-region inference profile, not the bare
+    // foundation-model ID — confirmed by a live test call that on-demand
+    // throughput isn't supported for this model directly ("Retry your
+    // request with the ID or ARN of an inference profile that contains
+    // this model"). A cross-region profile can route the actual inference
+    // to any US region, so IAM needs InvokeModel on the underlying
+    // foundation model across all regions (wildcarded only on region,
+    // still pinned to this exact model ID) in addition to the
+    // account/region-scoped inference-profile ARN itself — both are
+    // required for calls to succeed, per AWS's own guidance for
+    // cross-region inference.
+    const chatModelId = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+    const chatFoundationModelId = 'anthropic.claude-haiku-4-5-20251001-v1:0';
+    const chatInferenceProfileArn = `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${chatModelId}`;
+    const chatFoundationModelArnWildcardRegion = `arn:aws:bedrock:*::foundation-model/${chatFoundationModelId}`;
+
+    const chatFn = new lambdaNode.NodejsFunction(this, 'ChatFunction', {
+      entry: path.join(__dirname, '../lambda/chat/index.ts'),
+      runtime: lambda.Runtime.NODEJS_24_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(20),
+      environment: {
+        CHAT_SESSION_TABLE_NAME: chatSessionTable.tableName,
+        SITE_BUCKET_NAME: siteBucket.bucketName,
+        KVS_ARN: sessionKvs.keyValueStoreArn,
+        CHAT_MODEL_ID: chatModelId,
+        GUARDRAIL_ID: chatGuardrail.attrGuardrailId,
+        GUARDRAIL_VERSION: 'DRAFT',
+        // Runtime kill switch — flip directly on the deployed Lambda
+        // (console/CLI) to disable instantly without a redeploy.
+        CHAT_ENABLED: 'true',
+      },
+      bundling: { externalModules: [] },
+    });
+    chatSessionTable.grantReadWriteData(chatFn);
+    chatFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront-keyvaluestore:GetKey'],
+      resources: [sessionKvs.keyValueStoreArn],
+    }));
+    // Read-only, scoped to exactly the four public JSON files the
+    // assistant is allowed to answer from — never the raw résumé docx or
+    // JD source, which never leave `.tmp/` in the first place.
+    chatFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['s3:GetObject'],
+      resources: [
+        siteBucket.arnForObjects('content.json'),
+        siteBucket.arnForObjects('dora-metrics.json'),
+        siteBucket.arnForObjects('security-scorecard.json'),
+        siteBucket.arnForObjects('100-day-plan.json'),
+      ],
+    }));
+    // Dedicated to this Lambda alone — never shared with the GitHub OIDC
+    // deploy/diff/metrics roles above, which have no Bedrock access at all.
+    chatFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+      resources: [chatInferenceProfileArn, chatFoundationModelArnWildcardRegion],
+    }));
+    chatFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:ApplyGuardrail'],
+      resources: [chatGuardrail.attrGuardrailArn],
+    }));
+
     // ---- HTTP API (API Gateway v2) fronting the three Lambdas ----
     // Built from L1 (Cfn*) constructs rather than the L2 HttpApi, which
     // still lives in a separate alpha module version-locked to a specific
@@ -367,6 +478,7 @@ export class ResumeSiteStack extends cdk.Stack {
     addAuthRoute('AdminAllowlistGet', 'GET /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
     addAuthRoute('AdminAllowlistPost', 'POST /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
     addAuthRoute('AdminAllowlistDelete', 'DELETE /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
+    addAuthRoute('Chat', 'POST /api/chat', chatFn, '/api/chat');
 
     const authApiDomain = `${authApi.ref}.execute-api.${this.region}.${this.urlSuffix}`;
 
@@ -492,6 +604,22 @@ export class ResumeSiteStack extends cdk.Stack {
       // browser alone. ALL_VIEWER_EXCEPT_HOST_HEADER forwards everything
       // else (headers/cookies/query strings) but lets CloudFront set the
       // Host header to match the origin (API Gateway) domain instead.
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+    });
+
+    // ----------------------------------------------------------------
+    // /api/chat — same HTTP API/origin as /auth/*, same reasoning
+    // (same-origin, no CORS needed; Host header must not be forwarded).
+    // Unlike /auth/*, this route sits behind the session-check gate by
+    // virtue of the site itself being gated — an unauthenticated visitor
+    // never reaches a page that loads the chat widget in the first
+    // place, and the Lambda re-verifies the session cookie server-side
+    // regardless (never trust the client alone).
+    // ----------------------------------------------------------------
+    distribution.addBehavior('/api/chat', new origins.HttpOrigin(authApiDomain), {
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
       originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
     });
 
