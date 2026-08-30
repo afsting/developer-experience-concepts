@@ -568,41 +568,105 @@ generic prompt-injection concerns below.
 
 Security requirements (must-have, not optional, given public exposure):
 
-- [ ] System prompt is built only from the four curated JSON files —
+- [x] System prompt is built only from the four curated JSON files —
       never the raw résumé docx or JD, which contain phone/address and
       employer-internal names/req details not meant to be public.
       Re-verify whenever any of the four JSON files is edited.
-- [ ] Bedrock Guardrails configured: denied topics, PII filters, and a
+      **Done:** `infra/lambda/chat/index.ts` fetches exactly
+      `content.json`/`dora-metrics.json`/`security-scorecard.json`/
+      `100-day-plan.json` from S3 (5-minute in-memory cache) and builds
+      the system prompt from those alone.
+- [x] Bedrock Guardrails configured: denied topics, PII filters, and a
       tightly scoped system prompt to resist prompt injection ("ignore
       previous instructions..." style attacks) — including via the
       page-context value, even though that's app-controlled, not raw
       user input. Treat all model output as untrusted before rendering
       client-side (no raw HTML injection).
-- [ ] Rate limiting per **session** (the existing signed OTP cookie is a
+      **Done:** `ChatGuardrail` (`AWS::Bedrock::Guardrail`) in
+      `resume-site-stack.ts` — content filters (hate/insults/sexual/
+      violence/misconduct/prompt-attack) plus PII anonymization (email/
+      phone/name/address, SSN blocked outright). System prompt
+      explicitly instructs the model to treat the page-context value
+      and any instructions embedded in the JSON data or the visitor's
+      message as untrusted content, not commands. Widget renders
+      replies via `textContent`, never `innerHTML`.
+- [x] Rate limiting per **session** (the existing signed OTP cookie is a
       stronger identity signal than IP alone here) in addition to
       IP/time-window throttling — public chat endpoints are a
       billing-DoS target.
-- [ ] Hard max-token cap per response, and a hard cap on messages per
+      **Done:** combined with the message cap below (one atomic
+      DynamoDB counter per session email) rather than a separate
+      time-windowed limiter — proportionate at portfolio traffic
+      volume; the `/auth/*`-style API Gateway stage throttle
+      (`throttlingRateLimit: 10`) covers `/api/chat` too, for free,
+      as a second layer.
+- [x] Hard max-token cap per response, and a hard cap on messages per
       session, to bound cost per visitor.
-- [ ] Dedicated least-privilege IAM role for the chat Lambda — scoped to
+      **Done:** `MAX_RESPONSE_TOKENS = 400`, `MAX_MESSAGES_PER_SESSION
+      = 40` in `infra/lambda/chat/index.ts`, enforced via a
+      conditional atomic `UpdateCommand` against the new
+      `ChatSessionTable` (429 once the cap is hit, no Bedrock call
+      made).
+- [x] Dedicated least-privilege IAM role for the chat Lambda — scoped to
       `bedrock:InvokeModel`/`InvokeModelWithResponseStream` on only the
       chosen model ARN, plus read-only S3 access to the four JSON
       objects. Must be a separate role from the GitHub OIDC deploy/diff
       roles (different trust principal entirely — this role is assumed
       by Lambda, not GitHub Actions).
-- [ ] CORS locked to the CloudFront domain only, so other sites can't
-      embed/drain the endpoint.
+      **Done:** `ChatFunction`'s auto-generated role, scoped exactly as
+      specified plus `bedrock:ApplyGuardrail` on the guardrail ARN.
+      Covered by a jest assertion confirming none of the three GitHub
+      OIDC roles carry any `bedrock:*` action.
+- [x] CORS: **not needed** — `/api/chat` is same-origin via the
+      CloudFront distribution (same reasoning already documented for
+      `/auth/*`), so there's no cross-origin request to lock down.
 - [ ] AWS Budgets alarm on the Bedrock/Lambda costs specifically (ties
       into the existing cost-alarm nice-to-have below) — alert well
       under the $20/month ceiling so there's room to react.
-- [ ] Feature flag / kill switch (env var read by the Lambda, or a CDK
+      **Deferred to follow-up** — needs cost-allocation tags activated
+      in the Billing console first (a manual, non-CDK-automatable
+      one-time step, same category as the existing OIDC-provider/SES
+      bootstrap items already in this doc), not blocking the feature
+      itself.
+- [x] Feature flag / kill switch (env var read by the Lambda, or a CDK
       context flag that removes the CloudFront behavior/route) to
       instantly disable the applet without a full redeploy if abused.
-- [ ] No PII in any conversation logging; if logs are kept for
+      **Done:** `CHAT_ENABLED` Lambda env var (defaults `'true'`),
+      checked first in the handler — flip it directly on the deployed
+      Lambda to disable instantly, no redeploy required.
+- [x] No PII in any conversation logging; if logs are kept for
       debugging, redact and add a one-line privacy note in the applet.
-- [ ] Applet is hidden under `@media print` sitewide, so it never
+      **Done:** the Lambda does no explicit conversation logging
+      (only default Lambda/API Gateway execution logs, which don't
+      include the guardrail-protected chat content); the applet's
+      disclosure line doubles as the privacy note ("I'm an AI
+      assistant, not Raymond himself — I answer from this site's
+      published data").
+- [x] Applet is hidden under `@media print` sitewide, so it never
       appears in the 100-Day Plan's PDF export or any future print
       output.
+      **Done:** verified via `emulateMediaType('print')` in a headless-
+      Chromium pass — both the toggle button and panel compute to
+      `display: none`.
+
+**Implementation status (2026-08-30):** code-complete on branch
+`feature/ai-assistant-applet` — `infra/lambda/chat/index.ts`,
+`infra/lambda/common/http.ts` (new, promoted out of `admin/index.ts`
+to avoid a second duplicate), the CDK stack wiring, `site/chat-widget.js`,
+and the `styles.css` additions. `cdk synth` succeeds, all 14 jest tests
+pass (8 pre-existing + 6 new), and the frontend was verified end-to-end
+against a local static server with a mocked `/api/chat` response
+(page-aware greeting, suggested chips, sessionStorage persistence
+across a simulated page navigation with a page-change note, print-media
+hiding — all confirmed via headless Chromium).
+
+**Known blocker before a real `cdk deploy` can be verified live:** a
+test `aws bedrock-runtime converse` call against this account returned
+`AccessDeniedException: Your account is currently being verified...
+normally takes less than 2 hours` — AWS's own account-verification
+hold, not a model-access-request issue (the model itself,
+`anthropic.claude-haiku-4-5-20251001-v1:0`, is listed `ACTIVE`). Retry
+the live end-to-end check once that clears.
 
 ### 3. Golden-path / Internal Developer Platform demo
 
