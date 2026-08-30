@@ -25,6 +25,11 @@
       .replace(/'/g, '&#39;');
   }
 
+  function renderHeader(data) {
+    const title = document.getElementById('site-title');
+    if (title && data.title) title.textContent = data.title;
+  }
+
   function renderSummary(data) {
     const el = document.getElementById('summary-text');
     if (el) el.textContent = data.summary || '';
@@ -109,6 +114,7 @@
   }
 
   function render(data) {
+    renderHeader(data);
     renderSummary(data);
     renderCompetencies(data);
     renderHighlights(data);
