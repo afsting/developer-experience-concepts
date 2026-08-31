@@ -7,6 +7,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
+import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
@@ -694,7 +695,6 @@ export class ResumeSiteStack extends cdk.Stack {
 
     const githubOwner = 'afsting';
     const githubRepoName = 'developer-experience-concepts';
-    const githubRepo = `${githubOwner}/${githubRepoName}`;
 
     // GitHub decorates the `sub` claim with internal owner/repo IDs (e.g.
     // `repo:owner@12345/repo@67890:pull_request`) whenever the org or repo
@@ -817,6 +817,54 @@ export class ResumeSiteStack extends cdk.Stack {
       actions: ['cloudformation:DescribeStacks'],
       resources: [this.stackId],
     }));
+
+    // ----------------------------------------------------------------
+    // Cost alarm — covers the whole account's AWS spend (site + chat
+    // combined), not just one service. $10/month is generous headroom
+    // above the realistic ~$1-2/month estimate, so it only fires on
+    // genuine runaway cost rather than normal variance. Two
+    // notifications: FORECASTED gives advance warning if this month is
+    // on track to exceed the limit; ACTUAL confirms it actually has.
+    // AWS::Budgets::Budget is an inherently global resource (not tied to
+    // this stack's region).
+    // ----------------------------------------------------------------
+    const monthlyCostBudgetLimit = 10;
+
+    new budgets.CfnBudget(this, 'MonthlyCostBudget', {
+      budget: {
+        budgetName: `${this.stackName}-monthly-cost-budget`,
+        budgetType: 'COST',
+        timeUnit: 'MONTHLY',
+        budgetLimit: {
+          amount: monthlyCostBudgetLimit,
+          unit: 'USD',
+        },
+      },
+      notificationsWithSubscribers: [
+        {
+          notification: {
+            notificationType: 'FORECASTED',
+            comparisonOperator: 'GREATER_THAN',
+            threshold: 100,
+            thresholdType: 'PERCENTAGE',
+          },
+          subscribers: [
+            { subscriptionType: 'EMAIL', address: otpAdminEmail },
+          ],
+        },
+        {
+          notification: {
+            notificationType: 'ACTUAL',
+            comparisonOperator: 'GREATER_THAN',
+            threshold: 100,
+            thresholdType: 'PERCENTAGE',
+          },
+          subscribers: [
+            { subscriptionType: 'EMAIL', address: otpAdminEmail },
+          ],
+        },
+      ],
+    });
 
     // ----------------------------------------------------------------
     // Stack outputs

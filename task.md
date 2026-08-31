@@ -31,11 +31,23 @@ status check, no force-pushes/deletions, enforced for admins too).
       `cdk-diff.yml`, and `@types/node` to `^24.0.0` (PR #7, merged
       2026-08-25). Confirmed via job log: CDK CLI now reports
       `node v24.19.0`, original supported-versions warning gone.
-- [ ] Un-pin / upgrade `aws-cdk` (currently 2.152.0; CLI notices suggest
-      2.1138.0+) — check for breaking changes in `cdk.json` feature flags
-      before bumping.
-- [ ] Consider running `npm run lint` as part of `deploy.yml`/`cdk-diff.yml`
-      (script exists in `infra/package.json` but isn't wired into CI yet).
+- [x] Un-pin / upgrade `aws-cdk` — already at 2.1138.0 / `aws-cdk-lib`
+      2.266.0 (bumped naturally at some point during other dependency
+      work; the "2.152.0" figure this item cited was stale). Confirmed
+      `npm audit --audit-level=high` now finds 0 vulnerabilities, so
+      tightened both `cdk-diff.yml` and `deploy.yml` from `critical` to
+      `high` (2026-08-31).
+- [x] Wired `npm run lint` into `deploy.yml`/`cdk-diff.yml` (2026-08-31).
+      The script existed but had never actually been run — no ESLint
+      config existed in the repo at all, and the glob-quoted invocation
+      (`eslint 'lib/**/*.ts' ...`) silently breaks on Windows/cmd.exe
+      (single quotes aren't stripped, so eslint gets zero matches).
+      Added `infra/.eslintrc.json` (`eslint:recommended` +
+      `@typescript-eslint/recommended`) and changed the script to
+      `eslint lib bin test lambda --ext .ts`, which works identically
+      cross-platform without relying on shell glob expansion. First
+      real run surfaced exactly one genuine finding (an unused
+      `githubRepo` variable in `resume-site-stack.ts`) — fixed.
 - [x] Add branch protection on `main` requiring the `CDK Diff (PR)` check
       to pass before merge. Note: this required removing the `paths:`
       filter from `cdk-diff.yml` so the required status check reports on
@@ -43,7 +55,7 @@ status check, no force-pushes/deletions, enforced for admins too).
       forever waiting on a status that never gets reported. The workflow
       now always runs but internally skips the actual `cdk diff` steps via
       a git-diff-based gate when no infra files changed.
-- [ ] Repo is public specifically so branch protection works on GitHub
+- [x] Repo is public specifically so branch protection works on GitHub
       Free. GitHub Pro was purchased mid-session, which *does* unlock
       protection on private repos — revisit going private if desired
       (decision was to stay public + add a restrictive LICENSE instead,
@@ -120,7 +132,7 @@ Actions) that the rest of the site literally demonstrates.
       those aren't meant to be shared/unfurled. No og:image yet — would
       need an actual designed raster asset, out of scope for a quick
       win; `summary` card type doesn't require one.
-- [ ] **Reconsider the public contact address.** `content.json`'s
+- [x] **Reconsider the public contact address.** `content.json`'s
       `email` (and the footer `mailto:`) is the current employer's
       address (`raymond.page@mutualofomaha.com`). For a job-search
       portfolio this is worth a second look: it may read oddly to a
@@ -620,14 +632,11 @@ Security requirements (must-have, not optional, given public exposure):
 - [x] CORS: **not needed** — `/api/chat` is same-origin via the
       CloudFront distribution (same reasoning already documented for
       `/auth/*`), so there's no cross-origin request to lock down.
-- [ ] AWS Budgets alarm on the Bedrock/Lambda costs specifically (ties
-      into the existing cost-alarm nice-to-have below) — alert well
-      under the $20/month ceiling so there's room to react.
-      **Deferred to follow-up** — needs cost-allocation tags activated
-      in the Billing console first (a manual, non-CDK-automatable
-      one-time step, same category as the existing OIDC-provider/SES
-      bootstrap items already in this doc), not blocking the feature
-      itself.
+- [x] AWS Budgets alarm on costs (2026-08-31) — implemented as a single
+      whole-account $10/month budget rather than a Bedrock-filtered
+      one (see the cost-alarm nice-to-have below); simpler, needed no
+      cost-allocation-tag activation step, and still catches runaway
+      Bedrock/Lambda cost since it's well under the $20/month ceiling.
 - [x] Feature flag / kill switch (env var read by the Lambda, or a CDK
       context flag that removes the CloudFront behavior/route) to
       instantly disable the applet without a full redeploy if abused.
@@ -951,8 +960,13 @@ Plan:
       training datasets.
 - [x] Dependabot config for `infra/package.json` and GitHub Actions versions.
       (Done as part of DevSecOps CI hardening above — `.github/dependabot.yml`.)
-- [ ] PR template referencing the CDK diff comment / review checklist.
-- [ ] Smoke-test step after deploy (curl the CloudFront URL, assert 200).
+- [x] PR template referencing the CDK diff comment / review checklist
+      (2026-08-31): `.github/pull_request_template.md`.
+- [x] Smoke-test step after deploy (2026-08-31): curls `/login.html`
+      specifically (not the homepage — the OTP gate 302s an
+      unauthenticated request to everything else), with retries to
+      absorb any brief propagation lag right after the CloudFront
+      invalidation.
 - [x] Custom domain: `resume.pages-enterprise.com`, registered via Route 53.
       ACM certificate (DNS-validated) + Route 53 alias A/AAAA records wired
       into `infra/lib/resume-site-stack.ts`, referencing the pre-existing
@@ -963,8 +977,14 @@ Plan:
       access denial) to a domain-verified `ses.Identity.publicHostedZone(...)`
       identity, with `OTP_SES_FROM_ADDRESS` updated to
       `noreply@pages-enterprise.com`.
-- [ ] Optional: cost/budget alarm via AWS Budgets, given the "< $1/month"
-      claim in the README — would be a nice concrete demo of cost awareness.
+- [x] Cost/budget alarm via AWS Budgets (2026-08-31): `MonthlyCostBudget`
+      (`AWS::Budgets::Budget`) in `resume-site-stack.ts`, $10/month
+      whole-account threshold (generous headroom above the realistic
+      ~$1-2/month), with FORECASTED (advance warning) and ACTUAL
+      notifications both emailing `OTP_ADMIN_EMAIL`. This also covers
+      the Bedrock-specific alarm noted under feature 2 — a single
+      whole-account budget was simpler than a service-filtered one and
+      needed no cost-allocation-tag activation step.
 
 ## Notes / decisions log
 

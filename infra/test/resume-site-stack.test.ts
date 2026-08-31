@@ -207,4 +207,22 @@ describe('ResumeSiteStack', () => {
       },
     });
   });
+
+  test('Monthly cost budget alerts on both forecasted and actual spend exceeding the limit', () => {
+    template.hasResourceProperties('AWS::Budgets::Budget', {
+      Budget: Match.objectLike({
+        BudgetType: 'COST',
+        TimeUnit: 'MONTHLY',
+        BudgetLimit: { Amount: 10, Unit: 'USD' },
+      }),
+      NotificationsWithSubscribers: Match.arrayWith([
+        Match.objectLike({
+          Notification: Match.objectLike({ NotificationType: 'FORECASTED' }),
+        }),
+        Match.objectLike({
+          Notification: Match.objectLike({ NotificationType: 'ACTUAL' }),
+        }),
+      ]),
+    });
+  });
 });
