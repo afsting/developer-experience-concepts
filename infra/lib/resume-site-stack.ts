@@ -351,19 +351,24 @@ export class ResumeSiteStack extends cdk.Stack {
           { type: 'PROMPT_ATTACK', inputStrength: 'MEDIUM', outputStrength: 'NONE' },
         ],
       },
-      // NAME is deliberately NOT in this list. A PII action (with no
-      // explicit inputAction/outputAction override) applies to both
-      // directions by default — and this site's entire purpose is
-      // answering questions about a named person. Confirmed live via
-      // `aws bedrock-runtime apply-guardrail`: with NAME included, every
-      // mention of "Raymond" in the assistant's own reply was anonymized
-      // to the literal placeholder "{NAME}" ("Based on {NAME}'s 100-Day
-      // Plan..."), breaking the assistant on its very first real question.
-      // EMAIL/PHONE/SSN/ADDRESS still guard against a visitor pasting
-      // their own contact details into a message.
+      // NAME and EMAIL are deliberately NOT in this list. A PII action
+      // (with no explicit inputAction/outputAction override) applies to
+      // both directions by default — and this site's entire purpose is
+      // answering questions about a named person and surfacing his public
+      // contact email. Confirmed live via `aws bedrock-runtime
+      // apply-guardrail` (NAME) and real user testing (EMAIL): with either
+      // included, every mention of "Raymond" or his email in the
+      // assistant's own reply was anonymized to the literal placeholder
+      // ("Based on {NAME}'s 100-Day Plan...", "reach out to Raymond
+      // directly at {EMAIL}") — breaking the two most basic things a
+      // recruiter would ask this assistant. PHONE/SSN/ADDRESS are safe to
+      // keep: content.json deliberately never includes Raymond's phone or
+      // street address (see its own note_content field), so the model was
+      // never given that data and has no legitimate reason to output it —
+      // these three can only ever fire on hallucinated or visitor-pasted
+      // content, which is exactly the defensive posture intended.
       sensitiveInformationPolicyConfig: {
         piiEntitiesConfig: [
-          { type: 'EMAIL', action: 'ANONYMIZE' },
           { type: 'PHONE', action: 'ANONYMIZE' },
           { type: 'US_SOCIAL_SECURITY_NUMBER', action: 'BLOCK' },
           { type: 'ADDRESS', action: 'ANONYMIZE' },
