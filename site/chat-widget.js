@@ -258,11 +258,16 @@
     messagesEl.appendChild(thinking);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
+    // Send the full conversation (state.messages already has the current
+    // user turn pushed above), not just this one message -- otherwise the
+    // assistant answers every turn in isolation with no memory of earlier
+    // ones, which is especially jarring after a page refresh restores the
+    // visible transcript but the model itself has no idea it happened.
     fetch('/api/chat', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message: text, page: currentPage }),
+      body: JSON.stringify({ messages: state.messages, page: currentPage }),
     })
       .then(function (res) {
         return res.json().then(function (data) {
