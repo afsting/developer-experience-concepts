@@ -679,12 +679,38 @@ surfaced once Bedrock access actually cleared, both fixed same-day:
   (`action: 'ANONYMIZE'`) applies to both input *and* output by
   default — and this entire site's purpose is answering questions
   about a named person, so the guardrail was redacting its own core
-  subject. Fixed by removing `NAME` from
-  `sensitiveInformationPolicyConfig.piiEntitiesConfig` entirely
-  (EMAIL/PHONE/SSN/ADDRESS still protect against a visitor pasting
-  their own contact details); added a jest regression test asserting
-  `NAME` is never present. Follow-up PR, not yet merged as of this
-  note.
+  subject.
+- **Second instance of the same bug class, found immediately after by
+  the user asking about AI experience**: the assistant's answer ended
+  "...reach out to Raymond directly at **{EMAIL}**" — same root cause,
+  the `EMAIL` PII entity redacting Raymond's own public contact email
+  (the whole point of surfacing it). Fixed by removing both `NAME` and
+  `EMAIL` from `sensitiveInformationPolicyConfig.piiEntitiesConfig`
+  entirely. `PHONE`/`SSN`/`ADDRESS` stay, and safely: `content.json`
+  deliberately never includes Raymond's phone or street address (see
+  its own `note_content` field), so the model has no legitimate reason
+  to output them — those three can only ever fire on hallucinated or
+  visitor-pasted content. Added a jest regression test asserting
+  neither `NAME` nor `EMAIL` is ever present.
+- **Separately, the user also noticed literal markdown syntax in
+  replies** (double asterisks, `##` headers, `-` bullets rendering as
+  plain text instead of formatting) — the widget was correctly
+  HTML-escaping model output for safety but never interpreting
+  markdown at all. Fixed with a small hand-rolled markdown-to-HTML
+  renderer in `chat-widget.js` (`renderMarkdown`/`inlineMarkdown`):
+  bold/italic/inline-code/links/lists/headings, scoped to assistant
+  messages only. Stays exactly as safe against injection as plain
+  `textContent` would have been — text is HTML-escaped *first*, then
+  the regexes only ever wrap that already-escaped text in a small
+  fixed set of hardcoded tags, never anything from the model's raw
+  output. Verified via a headless-Chromium XSS check: a reply
+  containing `<img src=x onerror=...>` alongside real `**bold**`
+  markdown rendered the image tag as inert escaped text while the bold
+  formatting still worked correctly.
+
+All three fixes verified locally (jest, `cdk synth`, headless-Chromium
+frontend checks) on the same follow-up branch/PR as the NAME fix — not
+yet merged as of this note.
 
 ### 3. Golden-path / Internal Developer Platform demo
 

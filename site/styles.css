@@ -750,6 +750,28 @@ footer a:hover {
   background: var(--color-surface);
   color: var(--color-text);
 }
+.chat-widget-msg-assistant ul,
+.chat-widget-msg-assistant ol {
+  margin: 0.25rem 0 0.25rem 1.1rem;
+  padding: 0;
+}
+.chat-widget-msg-assistant li {
+  margin-bottom: 0.25rem;
+}
+.chat-widget-msg-assistant code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+.chat-widget-msg-assistant a {
+  color: var(--color-accent);
+}
+.chat-widget-heading {
+  display: inline-block;
+  margin-top: 0.25rem;
+}
 .chat-widget-thinking {
   opacity: 0.7;
   font-style: italic;

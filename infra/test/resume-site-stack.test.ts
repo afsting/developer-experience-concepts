@@ -105,22 +105,26 @@ describe('ResumeSiteStack', () => {
       },
       SensitiveInformationPolicyConfig: {
         PiiEntitiesConfig: Match.arrayWith([
-          Match.objectLike({ Type: 'EMAIL', Action: 'ANONYMIZE' }),
+          Match.objectLike({ Type: 'PHONE', Action: 'ANONYMIZE' }),
         ]),
       },
     });
   });
 
-  test('Bedrock guardrail never anonymizes NAME (regression guard)', () => {
-    // A live `apply-guardrail` test against the deployed guardrail confirmed
-    // redacting NAME anonymizes every mention of "Raymond" in the
-    // assistant's own replies to the literal placeholder "{NAME}" (e.g.
-    // "Based on {NAME}'s 100-Day Plan..."), breaking the chat applet's
-    // core purpose on its very first real question. Must never come back.
+  test('Bedrock guardrail never anonymizes NAME or EMAIL (regression guard)', () => {
+    // A live `apply-guardrail` test (NAME) and real user testing (EMAIL)
+    // both confirmed the guardrail's PII actions apply to the assistant's
+    // own replies, not just visitor input — redacting "Raymond" and his
+    // public contact email to literal placeholders ("Based on {NAME}'s
+    // 100-Day Plan...", "reach out to Raymond directly at {EMAIL}"),
+    // breaking the two most basic things a recruiter would ask. Must
+    // never come back — see the comment above piiEntitiesConfig in
+    // resume-site-stack.ts for the full reasoning on why these two (and
+    // only these two) are excluded.
     template.hasResourceProperties('AWS::Bedrock::Guardrail', {
       SensitiveInformationPolicyConfig: {
         PiiEntitiesConfig: Match.not(Match.arrayWith([
-          Match.objectLike({ Type: 'NAME' }),
+          Match.objectLike({ Type: Match.stringLikeRegexp('^(NAME|EMAIL)$') }),
         ])),
       },
     });

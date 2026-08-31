@@ -127,10 +127,74 @@
     return div.innerHTML;
   }
 
+  // Small hand-rolled markdown-to-HTML renderer for assistant replies —
+  // the model (reasonably) formats answers with **bold**, lists, etc.,
+  // and without this they render as literal asterisks/hashes. No external
+  // markdown library (matches the site's dependency-free convention).
+  // Safety: text is HTML-escaped via esc() FIRST, so it can no longer
+  // contain a live `<`/`>`/`&` — every regex below only ever wraps that
+  // already-escaped text in a small fixed set of hardcoded-safe tags
+  // (strong/em/code/ul/ol/li/br), never anything from the model's own
+  // output, so this stays just as safe against injection as plain
+  // textContent would have been.
+  function inlineMarkdown(s) {
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    s = s.replace(/`(.+?)`/g, '<code>$1</code>');
+    // [text](url) -- url is already HTML-escaped by esc(), and href values
+    // can't execute script the way innerHTML content could.
+    s = s.replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    return s;
+  }
+
+  function renderMarkdown(text) {
+    var lines = esc(text).split('\n');
+    var html = '';
+    var listTag = null; // 'ul' | 'ol' | null
+
+    function closeList() {
+      if (listTag) {
+        html += '</' + listTag + '>';
+        listTag = null;
+      }
+    }
+
+    lines.forEach(function (rawLine) {
+      var line = rawLine.trim();
+      var bullet = /^[-*]\s+(.*)/.exec(line);
+      var numbered = /^\d+\.\s+(.*)/.exec(line);
+      var heading = /^#{1,6}\s+(.*)/.exec(line);
+
+      if (bullet) {
+        if (listTag !== 'ul') { closeList(); html += '<ul>'; listTag = 'ul'; }
+        html += '<li>' + inlineMarkdown(bullet[1]) + '</li>';
+        return;
+      }
+      if (numbered) {
+        if (listTag !== 'ol') { closeList(); html += '<ol>'; listTag = 'ol'; }
+        html += '<li>' + inlineMarkdown(numbered[1]) + '</li>';
+        return;
+      }
+      closeList();
+
+      if (heading) {
+        html += '<strong class="chat-widget-heading">' + inlineMarkdown(heading[1]) + '</strong><br>';
+      } else if (line === '') {
+        html += '<br>';
+      } else {
+        html += inlineMarkdown(line) + '<br>';
+      }
+    });
+    closeList();
+
+    return html.replace(/(<br>\s*)+$/, '');
+  }
+
   function appendMessage(role, text) {
     var msg = document.createElement('div');
     msg.className = 'chat-widget-msg chat-widget-msg-' + role;
-    msg.innerHTML = esc(text);
+    msg.innerHTML = role === 'assistant' ? renderMarkdown(text) : esc(text);
     messagesEl.appendChild(msg);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
