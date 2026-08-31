@@ -300,6 +300,13 @@
     panel.hidden = false;
     toggle.setAttribute('aria-expanded', 'true');
     input.focus();
+    // The initial history replay (renderInitial, called at load time while
+    // the panel is still hidden) sets scrollTop right after each message,
+    // but a `display: none` element always reports scrollHeight as 0 — so
+    // that scroll is a no-op, and reopening a panel with restored history
+    // lands at the top instead of the most recent message. Re-apply it now
+    // that the panel actually has a rendered, measurable height.
+    messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
   function closePanel() {
