@@ -185,8 +185,20 @@ export class ResumeSiteStack extends cdk.Stack {
     // verified until production access is requested (see task.md —
     // decided to verify recipients manually rather than request
     // production access).
+    //
+    // Custom MAIL FROM domain: without this, the envelope sender
+    // (Return-Path) is a generic amazonses.com address, so SPF never
+    // aligns with the visible From domain — DKIM alignment alone is
+    // usually enough to pass DMARC, but a custom MAIL FROM domain is a
+    // specific, checkable item in AWS's own SES best-practices guidance
+    // (linked directly in the production-access denial email), so it's
+    // worth closing regardless of whether it was the actual reason for
+    // the denial. Must be a subdomain of the identity; CDK auto-manages
+    // the required MX + SPF TXT records in siteHostedZone the same way
+    // it already does for the DKIM CNAME records above.
     new ses.EmailIdentity(this, 'OtpSesFromIdentity', {
       identity: ses.Identity.publicHostedZone(siteHostedZone),
+      mailFromDomain: `mail.${siteHostedZone.zoneName}`,
     });
 
     // CloudFront KeyValueStore holding the HMAC secret used to sign/verify
