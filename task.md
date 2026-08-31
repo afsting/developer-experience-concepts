@@ -156,9 +156,13 @@ Actions) that the rest of the site literally demonstrates.
       "Facilitate the Engineering Community of Practice." A one-page
       genericized playbook — founding a CoP, meeting formats, topic
       pipeline, measuring engagement, sustaining momentum — drawn from
-      actually having founded three. A differentiator most candidates
-      cannot produce; pairs naturally with (or lives inside) the
-      Enablement page above.
+      actually having founded and run one (a "new technology" CoP
+      spanning AI, AR/VR, and cloud engineering as topic areas within
+      it, not three separate CoPs — corrected 2026-08-31). Other CoPs
+      (e.g. MuleSoft) exist too but without a set/repeatable format, so
+      the one with an actual established cadence is the real playbook
+      material. Still a differentiator most candidates cannot produce;
+      pairs naturally with (or lives inside) the Enablement page above.
 - [ ] **"Time to first deploy" onboarding claim on the golden-path
       section.** The JD's success measures include "faster onboarding."
       The template repo already exists; document (or script as a smoke
