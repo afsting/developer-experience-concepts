@@ -111,6 +111,21 @@ describe('ResumeSiteStack', () => {
     });
   });
 
+  test('Bedrock guardrail never anonymizes NAME (regression guard)', () => {
+    // A live `apply-guardrail` test against the deployed guardrail confirmed
+    // redacting NAME anonymizes every mention of "Raymond" in the
+    // assistant's own replies to the literal placeholder "{NAME}" (e.g.
+    // "Based on {NAME}'s 100-Day Plan..."), breaking the chat applet's
+    // core purpose on its very first real question. Must never come back.
+    template.hasResourceProperties('AWS::Bedrock::Guardrail', {
+      SensitiveInformationPolicyConfig: {
+        PiiEntitiesConfig: Match.not(Match.arrayWith([
+          Match.objectLike({ Type: 'NAME' }),
+        ])),
+      },
+    });
+  });
+
   test('Chat function IAM policy is scoped to exactly the four public JSON files', () => {
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {

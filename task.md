@@ -660,13 +660,31 @@ against a local static server with a mocked `/api/chat` response
 across a simulated page navigation with a page-change note, print-media
 hiding — all confirmed via headless Chromium).
 
-**Known blocker before a real `cdk deploy` can be verified live:** a
-test `aws bedrock-runtime converse` call against this account returned
-`AccessDeniedException: Your account is currently being verified...
-normally takes less than 2 hours` — AWS's own account-verification
-hold, not a model-access-request issue (the model itself,
-`anthropic.claude-haiku-4-5-20251001-v1:0`, is listed `ACTIVE`). Retry
-the live end-to-end check once that clears.
+**Shipped and deployed (PR #43, merged 2026-08-30).** Two issues
+surfaced once Bedrock access actually cleared, both fixed same-day:
+
+- The account-verification hold cleared on its own; separately, a live
+  `converse` call revealed `anthropic.claude-haiku-4-5-20251001-v1:0`
+  isn't invokable via on-demand throughput directly — it requires an
+  inference profile. Fixed: model ID switched to the
+  `us.anthropic.claude-haiku-4-5-20251001-v1:0` cross-region inference
+  profile, with IAM widened to also cover the underlying foundation
+  model ARN (region-wildcarded, still pinned to this exact model) as
+  AWS's cross-region inference requires. Verified live before merging.
+- **Live bug found by the user's first real question** ("What would
+  Raymond focus on in first 30 days?"): every reply anonymized
+  "Raymond" to the literal placeholder `{NAME}` ("Based on {NAME}'s
+  100-Day Plan..."). Root cause confirmed directly via `aws
+  bedrock-runtime apply-guardrail`: the guardrail's `NAME` PII entity
+  (`action: 'ANONYMIZE'`) applies to both input *and* output by
+  default — and this entire site's purpose is answering questions
+  about a named person, so the guardrail was redacting its own core
+  subject. Fixed by removing `NAME` from
+  `sensitiveInformationPolicyConfig.piiEntitiesConfig` entirely
+  (EMAIL/PHONE/SSN/ADDRESS still protect against a visitor pasting
+  their own contact details); added a jest regression test asserting
+  `NAME` is never present. Follow-up PR, not yet merged as of this
+  note.
 
 ### 3. Golden-path / Internal Developer Platform demo
 

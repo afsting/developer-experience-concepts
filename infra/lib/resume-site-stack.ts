@@ -351,12 +351,21 @@ export class ResumeSiteStack extends cdk.Stack {
           { type: 'PROMPT_ATTACK', inputStrength: 'MEDIUM', outputStrength: 'NONE' },
         ],
       },
+      // NAME is deliberately NOT in this list. A PII action (with no
+      // explicit inputAction/outputAction override) applies to both
+      // directions by default — and this site's entire purpose is
+      // answering questions about a named person. Confirmed live via
+      // `aws bedrock-runtime apply-guardrail`: with NAME included, every
+      // mention of "Raymond" in the assistant's own reply was anonymized
+      // to the literal placeholder "{NAME}" ("Based on {NAME}'s 100-Day
+      // Plan..."), breaking the assistant on its very first real question.
+      // EMAIL/PHONE/SSN/ADDRESS still guard against a visitor pasting
+      // their own contact details into a message.
       sensitiveInformationPolicyConfig: {
         piiEntitiesConfig: [
           { type: 'EMAIL', action: 'ANONYMIZE' },
           { type: 'PHONE', action: 'ANONYMIZE' },
           { type: 'US_SOCIAL_SECURITY_NUMBER', action: 'BLOCK' },
-          { type: 'NAME', action: 'ANONYMIZE' },
           { type: 'ADDRESS', action: 'ANONYMIZE' },
         ],
       },
