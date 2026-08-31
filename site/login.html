@@ -91,6 +91,17 @@
     .message.visible { display: block; }
     .message.info { background: #eef3fa; color: var(--color-accent); }
     .message.error { background: #fbeaea; color: var(--color-error); }
+    .notice {
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+    .notice strong { color: var(--color-text); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -98,6 +109,10 @@
   <main>
     <h1>Sign in required</h1>
     <p class="subtitle">This site is limited to invited visitors. Enter your email and we'll send you a one-time verification code.</p>
+
+    <div class="notice">
+      <strong>First time here?</strong> If you're asked to verify your email before a code can be sent, check your inbox for a one-time confirmation message from Amazon Web Services (separate from your login code) and click it, then come back and request your code again. This only happens once per email address.
+    </div>
 
     <div id="message" class="message" role="status" aria-live="polite"></div>
 
