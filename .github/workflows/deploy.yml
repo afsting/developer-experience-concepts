@@ -32,13 +32,16 @@ jobs:
 
       - name: Audit dependencies
         working-directory: infra
-        # See cdk-diff.yml's matching step for why this is 'critical' and
-        # not 'high' for now.
-        run: npm audit --audit-level=critical
+        # See cdk-diff.yml's matching step for why this is 'high'.
+        run: npm audit --audit-level=high
 
       - name: Build CDK app
         working-directory: infra
         run: npm run build
+
+      - name: Lint
+        working-directory: infra
+        run: npm run lint
 
       - name: Run CDK tests
         working-directory: infra
@@ -67,8 +70,10 @@ jobs:
         run: |
           BUCKET_NAME=$(jq -r '.ResumeSiteStack.BucketName' cdk-outputs.json)
           DISTRIBUTION_ID=$(jq -r '.ResumeSiteStack.DistributionId' cdk-outputs.json)
+          SITE_URL=$(jq -r '.ResumeSiteStack.SiteUrl' cdk-outputs.json)
           echo "bucket_name=$BUCKET_NAME" >> "$GITHUB_OUTPUT"
           echo "distribution_id=$DISTRIBUTION_ID" >> "$GITHUB_OUTPUT"
+          echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
 
       - name: Sync site to S3
         run: |
@@ -98,3 +103,25 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id "${{ steps.cdk-outputs.outputs.distribution_id }}" \
             --paths "/*"
+
+      - name: Smoke test
+        run: |
+          # /login.html specifically, not the homepage -- the OTP gate's
+          # session-check CloudFront Function redirects everything else to
+          # it for an unauthenticated request (which CI always is), so "/"
+          # would correctly 302 rather than 200. login.html is the one path
+          # explicitly exempted from the gate. A few retries with a short
+          # backoff absorb any brief propagation lag right after the
+          # invalidation above, rather than flaking an otherwise-good deploy.
+          URL="${{ steps.cdk-outputs.outputs.site_url }}/login.html"
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            if [ "$STATUS" = "200" ]; then
+              echo "Smoke test passed: $URL returned 200"
+              exit 0
+            fi
+            echo "Attempt $i: $URL returned $STATUS, retrying in 5s..."
+            sleep 5
+          done
+          echo "Smoke test failed: $URL did not return 200 after 5 attempts"
+          exit 1

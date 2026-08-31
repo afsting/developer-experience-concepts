@@ -7,7 +7,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "cdk": "cdk",
-    "lint": "eslint 'lib/**/*.ts' 'bin/**/*.ts' 'test/**/*.ts' 'lambda/**/*.ts'",
+    "lint": "eslint lib bin test lambda --ext .ts",
     "test": "jest"
   },
   "devDependencies": {

@@ -50,18 +50,21 @@ jobs:
       - name: Audit dependencies
         if: steps.changes.outputs.run == 'true'
         working-directory: infra
-        # Gated at 'critical' rather than 'high' for now: the existing
-        # high/moderate findings are all bundled transitive deps inside
-        # aws-cdk-lib itself (ajv/minimatch/yaml/brace-expansion), only
-        # fixable by an aws-cdk-lib major-version bump — tracked separately
-        # in task.md ("Un-pin / upgrade aws-cdk"), pending a feature-flag
-        # compat review. Tighten back to 'high' once that lands.
-        run: npm audit --audit-level=critical
+        # aws-cdk-lib upgraded to 2.266.0 (from the 2.152.0 that had
+        # bundled transitive high/moderate findings — ajv/minimatch/yaml/
+        # brace-expansion) resolved those; confirmed 0 findings at 'high'
+        # locally. Tightened from 'critical'.
+        run: npm audit --audit-level=high
 
       - name: Build CDK app
         if: steps.changes.outputs.run == 'true'
         working-directory: infra
         run: npm run build
+
+      - name: Lint
+        if: steps.changes.outputs.run == 'true'
+        working-directory: infra
+        run: npm run lint
 
       # Dependabot-authored PRs never get the credentialed steps below,
       # regardless of what changed: GitHub strips secrets and OIDC token
