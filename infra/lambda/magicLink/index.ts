@@ -13,11 +13,74 @@ const SITE_DOMAIN = process.env.SITE_DOMAIN!;
 const LINK_TTL_SECONDS = 15 * 60;
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // matches verifyCode's session length
 
-function loginErrorRedirect(): APIGatewayProxyStructuredResultV2 {
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function htmlResponse(statusCode: number, body: string): APIGatewayProxyStructuredResultV2 {
   return {
-    statusCode: 302,
-    headers: { location: `https://${SITE_DOMAIN}/login.html`, 'cache-control': 'no-store' },
+    statusCode,
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+    body,
   };
+}
+
+const PAGE_STYLE = `
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1a1d23; background: #f7f8fa; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+    }
+    main {
+      width: 100%; max-width: 380px; background: #fff; border: 1px solid #e2e5ea;
+      border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); padding: 2rem;
+    }
+    h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    p { color: #5a6170; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    button {
+      width: 100%; padding: 0.65rem 1rem; background: #1a4e8a; color: #fff;
+      border: none; border-radius: 6px; font-size: 1rem; cursor: pointer;
+    }
+    button:hover { background: #153e6e; }
+    a { color: #1a4e8a; }`;
+
+function confirmPage(email: string, linkToken: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Sign in — Raymond Page</title>
+<style>${PAGE_STYLE}</style></head><body>
+<main>
+  <h1>Sign in</h1>
+  <p>Continue as <strong>${escapeHtml(email)}</strong>.</p>
+  <form method="POST" action="/auth/consume-link">
+    <input type="hidden" name="token" value="${escapeHtml(linkToken)}" />
+    <button type="submit">Continue</button>
+  </form>
+</main>
+</body></html>`;
+}
+
+function errorPage(message: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Sign in — Raymond Page</title>
+<style>${PAGE_STYLE}</style></head><body>
+<main>
+  <h1>Link no longer valid</h1>
+  <p>${escapeHtml(message)}</p>
+  <p><a href="/login.html">Go to the normal sign-in page</a></p>
+</main>
+</body></html>`;
+}
+
+function parseFormBody(event: APIGatewayProxyEventV2): URLSearchParams {
+  const raw = event.isBase64Encoded && event.body
+    ? Buffer.from(event.body, 'base64').toString('utf8')
+    : (event.body ?? '');
+  return new URLSearchParams(raw);
 }
 
 // Admin-issued fallback login path: an admin generates a short-lived,
@@ -27,10 +90,20 @@ function loginErrorRedirect(): APIGatewayProxyStructuredResultV2 {
 // normal email-OTP flow — see task.md for why this exists (corporate spam
 // filters can silently swallow OTP emails from an unfamiliar domain, with
 // zero visibility on either end when that happens).
+//
+// GET only *renders* a confirmation page and never touches the token —
+// corporate email security (Microsoft Safe Links, Proofpoint, Mimecast,
+// etc.) automatically pre-fetches every link in an inbound email to scan
+// it, which would otherwise burn a single-use token before the real human
+// ever clicks it (confirmed live: a link emailed to a mutualofomaha.com
+// address was already dead by the time it was clicked). Only the actual
+// button click — a real form POST — consumes the token, since automated
+// link scanners issue GET/HEAD requests and don't submit forms.
 export async function handler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> {
   const method = event.requestContext.http.method;
+  const path = event.rawPath;
 
-  if (method === 'POST') {
+  if (method === 'POST' && path === '/auth/admin/magic-link') {
     const token = getSessionToken(event);
     if (!token) return forbidden();
     const hmacSecret = await getHmacSecret();
@@ -70,36 +143,50 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     });
   }
 
-  // GET /auth/consume-link — public, single-use. Anyone holding a valid,
-  // unexpired token is logged in as the email it was issued for; that's
-  // the deliberate tradeoff of a magic link, bounded by the short TTL and
-  // one-time consumption below.
-  const linkToken = event.queryStringParameters?.token;
-  if (!linkToken) return loginErrorRedirect();
+  if (method === 'GET' && path === '/auth/consume-link') {
+    const linkToken = event.queryStringParameters?.token;
+    if (!linkToken) return htmlResponse(400, errorPage('This link is missing its token.'));
 
-  const record = await ddb.send(new GetCommand({ TableName: MAGIC_LINK_TABLE_NAME, Key: { token: linkToken } }));
-  const item = record.Item;
-  if (!item) return loginErrorRedirect();
+    const record = await ddb.send(new GetCommand({ TableName: MAGIC_LINK_TABLE_NAME, Key: { token: linkToken } }));
+    const item = record.Item;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (!item || typeof item.ttl !== 'number' || item.ttl < nowSeconds) {
+      return htmlResponse(410, errorPage('This link has expired or was already used. Ask the site owner for a new one.'));
+    }
 
-  // One-time use: remove immediately, regardless of what happens next.
-  await ddb.send(new DeleteCommand({ TableName: MAGIC_LINK_TABLE_NAME, Key: { token: linkToken } }));
-
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  if (typeof item.ttl !== 'number' || item.ttl < nowSeconds) {
-    return loginErrorRedirect();
+    return htmlResponse(200, confirmPage(item.email as string, linkToken));
   }
 
-  const hmacSecret = await getHmacSecret();
-  const sessionToken = signSession(
-    { email: item.email as string, admin: !!item.admin, exp: nowSeconds + SESSION_TTL_SECONDS },
-    hmacSecret,
-  );
+  if (method === 'POST' && path === '/auth/consume-link') {
+    const form = parseFormBody(event);
+    const linkToken = form.get('token');
+    if (!linkToken) return htmlResponse(400, errorPage('This link is missing its token.'));
 
-  return {
-    statusCode: 302,
-    headers: { location: `https://${SITE_DOMAIN}/`, 'cache-control': 'no-store' },
-    cookies: [
-      `session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`,
-    ],
-  };
+    const record = await ddb.send(new GetCommand({ TableName: MAGIC_LINK_TABLE_NAME, Key: { token: linkToken } }));
+    const item = record.Item;
+
+    // One-time use: remove immediately, regardless of what happens next.
+    await ddb.send(new DeleteCommand({ TableName: MAGIC_LINK_TABLE_NAME, Key: { token: linkToken } }));
+
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (!item || typeof item.ttl !== 'number' || item.ttl < nowSeconds) {
+      return htmlResponse(410, errorPage('This link has expired or was already used. Ask the site owner for a new one.'));
+    }
+
+    const hmacSecret = await getHmacSecret();
+    const sessionToken = signSession(
+      { email: item.email as string, admin: !!item.admin, exp: nowSeconds + SESSION_TTL_SECONDS },
+      hmacSecret,
+    );
+
+    return {
+      statusCode: 302,
+      headers: { location: `https://${SITE_DOMAIN}/`, 'cache-control': 'no-store' },
+      cookies: [
+        `session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`,
+      ],
+    };
+  }
+
+  return jsonResponse(404, { message: 'Not found.' });
 }

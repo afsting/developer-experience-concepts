@@ -563,7 +563,8 @@ export class ResumeSiteStack extends cdk.Stack {
     addAuthRoute('SessionWhoAmI', 'GET /auth/session', sessionFn, '/auth/session');
     addAuthRoute('SessionLogout', 'POST /auth/logout', sessionFn, '/auth/logout');
     addAuthRoute('AdminMagicLink', 'POST /auth/admin/magic-link', magicLinkFn, '/auth/admin/magic-link');
-    addAuthRoute('ConsumeMagicLink', 'GET /auth/consume-link', magicLinkFn, '/auth/consume-link');
+    addAuthRoute('ConsumeMagicLinkGet', 'GET /auth/consume-link', magicLinkFn, '/auth/consume-link');
+    addAuthRoute('ConsumeMagicLinkPost', 'POST /auth/consume-link', magicLinkFn, '/auth/consume-link');
 
     const authApiDomain = `${authApi.ref}.execute-api.${this.region}.${this.urlSuffix}`;
 

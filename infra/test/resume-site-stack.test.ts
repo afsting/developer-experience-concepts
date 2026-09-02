@@ -224,6 +224,14 @@ describe('ResumeSiteStack', () => {
     template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
       RouteKey: 'GET /auth/consume-link',
     });
+    // GET only renders a confirmation page (never consumes the token) —
+    // POST is the one that actually logs the visitor in. Split this way so
+    // corporate email link-scanners (Microsoft Safe Links etc.), which
+    // pre-fetch every link via GET before a human clicks it, can't silently
+    // burn a single-use token before the real click happens.
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: 'POST /auth/consume-link',
+    });
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       KeySchema: [{ AttributeName: 'token', KeyType: 'HASH' }],
       TimeToLiveSpecification: { AttributeName: 'ttl', Enabled: true },
