@@ -178,3 +178,6 @@ infra/cdk-outputs.json
 
 # Python virtual environments (if used for CDK)
 .venv/
+
+# Planning doc - transient, local only, not tracked in git
+/task.md
