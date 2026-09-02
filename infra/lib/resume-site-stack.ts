@@ -330,6 +330,60 @@ export class ResumeSiteStack extends cdk.Stack {
       resources: [sessionKvs.keyValueStoreArn],
     }));
 
+    // Session status/logout — lets the frontend show "Logged in as
+    // <email>" and clear the session cookie, since the cookie itself is
+    // HttpOnly and unreadable from JS. GET reports the current signed
+    // session's identity (or authenticated: false); POST clears the
+    // cookie unconditionally.
+    const sessionFn = new lambdaNode.NodejsFunction(this, 'SessionFunction', {
+      entry: path.join(__dirname, '../lambda/session/index.ts'),
+      runtime: lambda.Runtime.NODEJS_24_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        KVS_ARN: sessionKvs.keyValueStoreArn,
+      },
+      bundling: { externalModules: [] },
+    });
+    sessionFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront-keyvaluestore:GetKey'],
+      resources: [sessionKvs.keyValueStoreArn],
+    }));
+
+    // Admin-issued magic-link fallback login. In addition to (never instead
+    // of) the email-OTP flow above — for the case where a recipient's own
+    // corporate mail gateway silently swallows the OTP email with no
+    // visibility on either end (the motivating case: a candidate's
+    // interviewer on a locked-down corporate domain). An admin generates a
+    // short-lived, single-use link from admin.html and shares it via a
+    // channel they already trust instead of relying on SES reaching an
+    // unfamiliar inbox.
+    const magicLinkTable = new dynamodb.Table(this, 'MagicLinkTable', {
+      partitionKey: { name: 'token', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+    });
+
+    const magicLinkFn = new lambdaNode.NodejsFunction(this, 'MagicLinkFunction', {
+      entry: path.join(__dirname, '../lambda/magicLink/index.ts'),
+      runtime: lambda.Runtime.NODEJS_24_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        MAGIC_LINK_TABLE_NAME: magicLinkTable.tableName,
+        ALLOWLIST_TABLE_NAME: allowlistTable.tableName,
+        KVS_ARN: sessionKvs.keyValueStoreArn,
+        SITE_DOMAIN: siteDomainName,
+      },
+      bundling: { externalModules: [] },
+    });
+    magicLinkTable.grantReadWriteData(magicLinkFn);
+    allowlistTable.grantReadData(magicLinkFn);
+    magicLinkFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront-keyvaluestore:GetKey'],
+      resources: [sessionKvs.keyValueStoreArn],
+    }));
+
     // ---- AI assistant applet (sitewide, page-aware chat) ----
     // Direct Bedrock Runtime `Converse` call, not an Agent + Knowledge
     // Base — the site's entire public data surface (the four JSON files
@@ -506,6 +560,10 @@ export class ResumeSiteStack extends cdk.Stack {
     addAuthRoute('AdminAllowlistPost', 'POST /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
     addAuthRoute('AdminAllowlistDelete', 'DELETE /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
     addAuthRoute('Chat', 'POST /api/chat', chatFn, '/api/chat');
+    addAuthRoute('SessionWhoAmI', 'GET /auth/session', sessionFn, '/auth/session');
+    addAuthRoute('SessionLogout', 'POST /auth/logout', sessionFn, '/auth/logout');
+    addAuthRoute('AdminMagicLink', 'POST /auth/admin/magic-link', magicLinkFn, '/auth/admin/magic-link');
+    addAuthRoute('ConsumeMagicLink', 'GET /auth/consume-link', magicLinkFn, '/auth/consume-link');
 
     const authApiDomain = `${authApi.ref}.execute-api.${this.region}.${this.urlSuffix}`;
 

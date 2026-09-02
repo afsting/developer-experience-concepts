@@ -55,5 +55,50 @@
     mount.appendChild(ul);
   }
 
+  // Shows "Logged in as <email>" + a Log out button in the header's
+  // upper-left corner. The session cookie is HttpOnly (unreadable from
+  // JS), so this asks the server for the signed session's identity rather
+  // than trusting anything stored client-side.
+  function renderSessionBar() {
+    var globalNavMount = document.getElementById('global-nav');
+    if (!globalNavMount || !globalNavMount.parentNode) return;
+
+    var bar = document.createElement('div');
+    bar.className = 'session-bar';
+    globalNavMount.parentNode.insertBefore(bar, globalNavMount.parentNode.firstChild);
+
+    fetch('/auth/session', { credentials: 'same-origin' })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        if (!data || !data.authenticated) {
+          bar.remove();
+          return;
+        }
+
+        var emailSpan = document.createElement('span');
+        emailSpan.className = 'session-bar-email';
+        emailSpan.textContent = 'Logged in as ' + data.email;
+
+        var logoutBtn = document.createElement('button');
+        logoutBtn.type = 'button';
+        logoutBtn.className = 'session-bar-logout';
+        logoutBtn.textContent = 'Log out';
+        logoutBtn.addEventListener('click', function () {
+          logoutBtn.disabled = true;
+          fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' })
+            .catch(function () { /* cookie clear is best-effort; still redirect */ })
+            .then(function () {
+              try { window.localStorage.removeItem('isAdmin'); } catch (e) { /* ignore */ }
+              window.location.href = '/login.html';
+            });
+        });
+
+        bar.appendChild(emailSpan);
+        bar.appendChild(logoutBtn);
+      })
+      .catch(function () { bar.remove(); });
+  }
+
   renderGlobalNav();
+  renderSessionBar();
 })();
