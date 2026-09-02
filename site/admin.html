@@ -68,6 +68,20 @@
       </div>
       <button type="submit">Add</button>
     </form>
+
+    <h2 style="margin-top: var(--space-lg);">Generate login link</h2>
+    <p>For an allowlisted email whose verification emails aren't arriving (e.g. blocked by a corporate spam filter). Share the link directly through a channel you trust — it's single-use and expires in 15 minutes.</p>
+    <form class="add-entry" id="magic-link-form">
+      <div>
+        <label for="magic-link-email">Email</label>
+        <input type="email" id="magic-link-email" name="email" placeholder="name@example.com" required />
+      </div>
+      <button type="submit">Generate link</button>
+    </form>
+    <div id="magic-link-result" hidden style="margin-top: 0.75rem;">
+      <label for="magic-link-url">Login link (expires in <span id="magic-link-expiry"></span> minutes) — click to select</label>
+      <input type="text" id="magic-link-url" readonly style="width:100%; padding:0.5rem; margin-top:0.25rem; border:1px solid var(--color-border); border-radius:var(--radius); font-size:0.85rem;" />
+    </div>
   </main>
 
   <footer role="contentinfo">
@@ -175,6 +189,40 @@
           })
           .catch(function () {
             setStatus('Failed to add entry.', 'error');
+          });
+      });
+
+      var magicLinkForm = document.getElementById('magic-link-form');
+      var magicLinkResult = document.getElementById('magic-link-result');
+      var magicLinkUrl = document.getElementById('magic-link-url');
+      var magicLinkExpiry = document.getElementById('magic-link-expiry');
+
+      magicLinkForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var email = document.getElementById('magic-link-email').value.trim();
+        magicLinkResult.hidden = true;
+
+        fetch('/auth/admin/magic-link', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ email: email }),
+        })
+          .then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (data) {
+              if (!response.ok) {
+                throw new Error(data && data.message ? data.message : 'Failed to generate link.');
+              }
+              magicLinkUrl.value = data.url;
+              magicLinkExpiry.textContent = data.expiresInMinutes;
+              magicLinkResult.hidden = false;
+              magicLinkUrl.focus();
+              magicLinkUrl.select();
+              setStatus('Link generated.', 'ok');
+            });
+          })
+          .catch(function (err) {
+            setStatus(err && err.message ? err.message : 'Failed to generate link.', 'error');
           });
       });
 

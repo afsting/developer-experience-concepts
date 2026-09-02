@@ -217,6 +217,19 @@ describe('ResumeSiteStack', () => {
     });
   });
 
+  test('Magic-link fallback login routes exist and the token table has TTL enabled', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: 'POST /auth/admin/magic-link',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: 'GET /auth/consume-link',
+    });
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      KeySchema: [{ AttributeName: 'token', KeyType: 'HASH' }],
+      TimeToLiveSpecification: { AttributeName: 'ttl', Enabled: true },
+    });
+  });
+
   test('Monthly cost budget alerts on both forecasted and actual spend exceeding the limit', () => {
     template.hasResourceProperties('AWS::Budgets::Budget', {
       Budget: Match.objectLike({
