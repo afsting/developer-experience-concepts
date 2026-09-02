@@ -208,6 +208,15 @@ describe('ResumeSiteStack', () => {
     });
   });
 
+  test('Session status/logout routes exist on the auth API', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: 'GET /auth/session',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: 'POST /auth/logout',
+    });
+  });
+
   test('Monthly cost budget alerts on both forecasted and actual spend exceeding the limit', () => {
     template.hasResourceProperties('AWS::Budgets::Budget', {
       Budget: Match.objectLike({

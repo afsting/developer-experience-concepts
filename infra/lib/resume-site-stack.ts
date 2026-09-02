@@ -330,6 +330,26 @@ export class ResumeSiteStack extends cdk.Stack {
       resources: [sessionKvs.keyValueStoreArn],
     }));
 
+    // Session status/logout — lets the frontend show "Logged in as
+    // <email>" and clear the session cookie, since the cookie itself is
+    // HttpOnly and unreadable from JS. GET reports the current signed
+    // session's identity (or authenticated: false); POST clears the
+    // cookie unconditionally.
+    const sessionFn = new lambdaNode.NodejsFunction(this, 'SessionFunction', {
+      entry: path.join(__dirname, '../lambda/session/index.ts'),
+      runtime: lambda.Runtime.NODEJS_24_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        KVS_ARN: sessionKvs.keyValueStoreArn,
+      },
+      bundling: { externalModules: [] },
+    });
+    sessionFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront-keyvaluestore:GetKey'],
+      resources: [sessionKvs.keyValueStoreArn],
+    }));
+
     // ---- AI assistant applet (sitewide, page-aware chat) ----
     // Direct Bedrock Runtime `Converse` call, not an Agent + Knowledge
     // Base — the site's entire public data surface (the four JSON files
@@ -506,6 +526,8 @@ export class ResumeSiteStack extends cdk.Stack {
     addAuthRoute('AdminAllowlistPost', 'POST /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
     addAuthRoute('AdminAllowlistDelete', 'DELETE /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
     addAuthRoute('Chat', 'POST /api/chat', chatFn, '/api/chat');
+    addAuthRoute('SessionWhoAmI', 'GET /auth/session', sessionFn, '/auth/session');
+    addAuthRoute('SessionLogout', 'POST /auth/logout', sessionFn, '/auth/logout');
 
     const authApiDomain = `${authApi.ref}.execute-api.${this.region}.${this.urlSuffix}`;
 
