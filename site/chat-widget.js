@@ -57,6 +57,27 @@
   };
 
   var STORAGE_KEY = 'chatWidgetState';
+  var SEEN_KEY = 'chatWidgetOpened';
+
+  // Persisted across sessions (not sessionStorage) — once a visitor has
+  // ever opened the widget, they know it's there; the attention glint
+  // shouldn't come back on a later visit.
+  function hasBeenOpened() {
+    try {
+      return window.localStorage.getItem(SEEN_KEY) === 'true';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function markOpened() {
+    try {
+      window.localStorage.setItem(SEEN_KEY, 'true');
+    } catch (e) {
+      // localStorage unavailable — the glint will just replay next visit,
+      // which is a harmless degradation.
+    }
+  }
   var currentPage = document.body.getAttribute('data-page') || '';
   var pageInfo = PAGE_INFO[currentPage] || { name: 'this site', questions: [] };
 
@@ -90,6 +111,9 @@
   toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-controls', 'chat-widget-panel');
   toggle.textContent = 'Ask AI';
+  if (!hasBeenOpened()) {
+    toggle.classList.add('attention');
+  }
 
   var panel = document.createElement('div');
   panel.className = 'chat-widget-panel';
@@ -304,6 +328,8 @@
   function openPanel() {
     panel.hidden = false;
     toggle.setAttribute('aria-expanded', 'true');
+    toggle.classList.remove('attention');
+    markOpened();
     input.focus();
     // The initial history replay (renderInitial, called at load time while
     // the panel is still hidden) sets scrollTop right after each message,

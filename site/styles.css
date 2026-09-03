@@ -701,6 +701,23 @@ footer a:hover {
   background: var(--color-accent-hover);
 }
 
+/* Subtle attention pulse for first-time visitors who haven't noticed the
+   button yet — a few soft glints, then it stops on its own (see the
+   iteration count below) even if never clicked, and JS removes the class
+   immediately on first open so it never repeats for a returning visitor. */
+@keyframes chat-widget-glint {
+  0%, 85%, 100% { box-shadow: var(--shadow); }
+  92% { box-shadow: var(--shadow), 0 0 0 6px rgba(26, 78, 138, 0.28); }
+}
+.chat-widget-toggle.attention {
+  animation: chat-widget-glint 6s ease-in-out 4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-widget-toggle.attention {
+    animation: none;
+  }
+}
+
 .chat-widget-panel {
   position: fixed;
   bottom: calc(var(--space-md) + 3.5rem);
