@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { randomBytes } from 'node:crypto';
-import { DeleteCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb } from '../common/dynamo';
 import { checkAllowlist } from '../common/allowlist';
 import { signSession, verifySession } from '../common/session';
@@ -10,7 +10,7 @@ import { getSessionToken, forbidden, jsonResponse } from '../common/http';
 const MAGIC_LINK_TABLE_NAME = process.env.MAGIC_LINK_TABLE_NAME!;
 const ALLOWLIST_TABLE_NAME = process.env.ALLOWLIST_TABLE_NAME!;
 const SITE_DOMAIN = process.env.SITE_DOMAIN!;
-const LINK_TTL_SECONDS = 15 * 60;
+const LINK_TTL_SECONDS = 24 * 60 * 60; // 24h — an interviewer isn't waiting by their inbox
 const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // matches verifyCode's session length
 
 function escapeHtml(value: string): string {
@@ -84,21 +84,28 @@ function parseFormBody(event: APIGatewayProxyEventV2): URLSearchParams {
 }
 
 // Admin-issued fallback login path: an admin generates a short-lived,
-// single-use link for a specific allowlisted email and shares it via a
+// time-boxed link for a specific allowlisted email and shares it via a
 // channel they already trust (Teams, an existing email thread, etc.),
 // bypassing SES delivery entirely. In addition to, not instead of, the
 // normal email-OTP flow — see task.md for why this exists (corporate spam
 // filters can silently swallow OTP emails from an unfamiliar domain, with
 // zero visibility on either end when that happens).
 //
-// GET only *renders* a confirmation page and never touches the token —
+// The link is reusable for its whole TTL window rather than single-use:
+// an earlier single-use version was burned by automated link-prefetching
+// (see the GET-vs-POST split below) and, independently, made for a bad
+// experience any time the same real click needed to happen twice — a
+// browser back button, opening the email on a second device, a link
+// preview in the email client. Once the TTL expires, both GET and POST
+// treat it as gone.
+//
+// GET only *renders* a confirmation page and never establishes a session —
 // corporate email security (Microsoft Safe Links, Proofpoint, Mimecast,
 // etc.) automatically pre-fetches every link in an inbound email to scan
-// it, which would otherwise burn a single-use token before the real human
-// ever clicks it (confirmed live: a link emailed to a mutualofomaha.com
-// address was already dead by the time it was clicked). Only the actual
-// button click — a real form POST — consumes the token, since automated
-// link scanners issue GET/HEAD requests and don't submit forms.
+// it (confirmed live: a link emailed to a mutualofomaha.com address
+// triggered this). Only an actual button click — a real form POST — logs
+// the visitor in, since automated link scanners issue GET/HEAD requests
+// and don't submit forms.
 export async function handler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> {
   const method = event.requestContext.http.method;
   const path = event.rawPath;
@@ -139,7 +146,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
 
     return jsonResponse(201, {
       url: `https://${SITE_DOMAIN}/auth/consume-link?token=${linkToken}`,
-      expiresInMinutes: LINK_TTL_SECONDS / 60,
+      expiresInHours: LINK_TTL_SECONDS / 3600,
     });
   }
 
@@ -151,7 +158,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     const item = record.Item;
     const nowSeconds = Math.floor(Date.now() / 1000);
     if (!item || typeof item.ttl !== 'number' || item.ttl < nowSeconds) {
-      return htmlResponse(410, errorPage('This link has expired or was already used. Ask the site owner for a new one.'));
+      return htmlResponse(410, errorPage('This link has expired. Ask the site owner for a new one.'));
     }
 
     return htmlResponse(200, confirmPage(item.email as string, linkToken));
@@ -165,12 +172,11 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     const record = await ddb.send(new GetCommand({ TableName: MAGIC_LINK_TABLE_NAME, Key: { token: linkToken } }));
     const item = record.Item;
 
-    // One-time use: remove immediately, regardless of what happens next.
-    await ddb.send(new DeleteCommand({ TableName: MAGIC_LINK_TABLE_NAME, Key: { token: linkToken } }));
-
+    // Deliberately not deleted here — reusable for the rest of its TTL
+    // window, not single-use. DynamoDB TTL cleans it up once it expires.
     const nowSeconds = Math.floor(Date.now() / 1000);
     if (!item || typeof item.ttl !== 'number' || item.ttl < nowSeconds) {
-      return htmlResponse(410, errorPage('This link has expired or was already used. Ask the site owner for a new one.'));
+      return htmlResponse(410, errorPage('This link has expired. Ask the site owner for a new one.'));
     }
 
     const hmacSecret = await getHmacSecret();
