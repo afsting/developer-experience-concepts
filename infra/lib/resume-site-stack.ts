@@ -563,7 +563,12 @@ export class ResumeSiteStack extends cdk.Stack {
     addAuthRoute('SessionWhoAmI', 'GET /auth/session', sessionFn, '/auth/session');
     addAuthRoute('SessionLogout', 'POST /auth/logout', sessionFn, '/auth/logout');
     addAuthRoute('AdminMagicLink', 'POST /auth/admin/magic-link', magicLinkFn, '/auth/admin/magic-link');
-    addAuthRoute('ConsumeMagicLinkGet', 'GET /auth/consume-link', magicLinkFn, '/auth/consume-link');
+    // NOTE: keep this construct ID as `ConsumeMagicLink`, matching the
+    // route already live from an earlier deploy — renaming it once caused
+    // CloudFormation to try creating a same-route-key replacement route
+    // before deleting the old one, which API Gateway rejects (route keys
+    // must be unique per API) and rolled the whole stack update back.
+    addAuthRoute('ConsumeMagicLink', 'GET /auth/consume-link', magicLinkFn, '/auth/consume-link');
     addAuthRoute('ConsumeMagicLinkPost', 'POST /auth/consume-link', magicLinkFn, '/auth/consume-link');
 
     const authApiDomain = `${authApi.ref}.execute-api.${this.region}.${this.urlSuffix}`;
