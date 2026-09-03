@@ -45,7 +45,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
   if (method === 'POST') {
     let type: unknown;
     let value: string | undefined;
-    let isAdmin = false;
+    let isAdmin: boolean;
     try {
       const body = JSON.parse(event.body || '{}');
       type = body.type;
