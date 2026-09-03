@@ -70,7 +70,7 @@
     </form>
 
     <h2 style="margin-top: var(--space-lg);">Generate login link</h2>
-    <p>For an allowlisted email whose verification emails aren't arriving (e.g. blocked by a corporate spam filter). Share the link directly through a channel you trust — it's single-use and expires in 15 minutes.</p>
+    <p>For an allowlisted email whose verification emails aren't arriving (e.g. blocked by a corporate spam filter). Share the link directly through a channel you trust — it stays valid for 24 hours and can be used more than once during that window.</p>
     <form class="add-entry" id="magic-link-form">
       <div>
         <label for="magic-link-email">Email</label>
@@ -79,7 +79,7 @@
       <button type="submit">Generate link</button>
     </form>
     <div id="magic-link-result" hidden style="margin-top: 0.75rem;">
-      <label for="magic-link-url">Login link (expires in <span id="magic-link-expiry"></span> minutes) — click to select</label>
+      <label for="magic-link-url">Login link (expires in <span id="magic-link-expiry"></span> hours) — click to select</label>
       <input type="text" id="magic-link-url" readonly style="width:100%; padding:0.5rem; margin-top:0.25rem; border:1px solid var(--color-border); border-radius:var(--radius); font-size:0.85rem;" />
     </div>
   </main>
@@ -214,7 +214,7 @@
                 throw new Error(data && data.message ? data.message : 'Failed to generate link.');
               }
               magicLinkUrl.value = data.url;
-              magicLinkExpiry.textContent = data.expiresInMinutes;
+              magicLinkExpiry.textContent = data.expiresInHours;
               magicLinkResult.hidden = false;
               magicLinkUrl.focus();
               magicLinkUrl.select();
