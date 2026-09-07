@@ -195,6 +195,31 @@ describe('ResumeSiteStack', () => {
     }
   });
 
+  test('Login email is sent via Resend, not SES (regression guard for the SES -> Resend migration)', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Handler: 'index.handler',
+      Environment: {
+        Variables: Match.objectLike({
+          RESEND_API_KEY: Match.anyValue(),
+          RESEND_FROM_ADDRESS: Match.anyValue(),
+        }),
+      },
+    });
+
+    // No IAM policy in the stack should still be granting ses:SendEmail —
+    // that access was removed along with the SES send path itself.
+    const policies = Object.values(template.findResources('AWS::IAM::Policy'));
+    for (const policy of policies) {
+      const statements = (policy as { Properties?: { PolicyDocument?: { Statement?: unknown[] } } })
+        .Properties?.PolicyDocument?.Statement ?? [];
+      for (const statement of statements) {
+        const actions = (statement as { Action?: unknown }).Action;
+        const actionList = Array.isArray(actions) ? actions : [actions];
+        expect(actionList).not.toContain('ses:SendEmail');
+      }
+    }
+  });
+
   test('/api/chat is a CloudFront behavior with caching disabled', () => {
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: {

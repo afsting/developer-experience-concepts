@@ -60,6 +60,16 @@ export interface ResumeSiteStackProps extends cdk.StackProps {
    * value only for local/test synth.
    */
   readonly otpHmacSecret?: string;
+
+  /**
+   * Resend API key used to send OTP login-code email. Replaces SES for
+   * this purpose (see task.md — Email provider: SES -> Resend migration)
+   * since SES sandbox mode requires every recipient to individually
+   * verify their address, while Resend only requires sending-domain
+   * verification. Supplied via the RESEND_API_KEY repo secret; falls
+   * back to a non-functional placeholder only for local/test synth.
+   */
+  readonly resendApiKey?: string;
 }
 
 export class ResumeSiteStack extends cdk.Stack {
@@ -72,6 +82,12 @@ export class ResumeSiteStack extends cdk.Stack {
     const otpAdminEmail = props?.otpAdminEmail ?? 'admin@example.invalid';
     const otpSesFromAddress = props?.otpSesFromAddress ?? 'admin@example.invalid';
     const otpHmacSecret = props?.otpHmacSecret ?? crypto.randomBytes(32).toString('hex');
+    const resendApiKey = props?.resendApiKey ?? 'placeholder-resend-key';
+    // Derived from the verified Resend sending domain (send.pages-enterprise.com,
+    // a fresh subdomain kept separate from SES's mail.pages-enterprise.com to
+    // avoid any DNS record collision) — not secret, so kept as a plain
+    // constant rather than another required repo secret.
+    const resendFromAddress = 'noreply@send.pages-enterprise.com';
 
     // ----------------------------------------------------------------
     // Custom domain — resume.pages-enterprise.com
@@ -275,24 +291,17 @@ export class ResumeSiteStack extends cdk.Stack {
       environment: {
         OTP_TABLE_NAME: otpTable.tableName,
         ALLOWLIST_TABLE_NAME: allowlistTable.tableName,
-        SES_FROM_ADDRESS: otpSesFromAddress,
+        RESEND_API_KEY: resendApiKey,
+        RESEND_FROM_ADDRESS: resendFromAddress,
       },
       bundling: { externalModules: [] },
     });
     otpTable.grantReadWriteData(requestCodeFn);
     allowlistTable.grantReadData(requestCodeFn);
-    // SES authorizes ses:SendEmail against the identity ARN of BOTH the
-    // "From" identity and, while the account is in the SES sandbox, every
-    // recipient — recipients must also resolve to an authorized identity
-    // ARN. Recipients here are an arbitrary, dynamically-managed allowlist
-    // (see AdminAllowlistFunction) and can't be enumerated up front, so
-    // per AWS's own guidance for email-sending-only policies we use a
-    // wildcard resource; the real access boundary is the allowlist check
-    // in requestCode/index.ts, not this IAM policy.
-    requestCodeFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['ses:SendEmail'],
-      resources: ['*'],
-    }));
+    // No IAM grant needed for sending — Resend is a plain HTTPS API
+    // authorized by the RESEND_API_KEY env var above, not an AWS service
+    // call. (SES's ses:SendEmail grant lived here previously; removed
+    // along with the SES send path itself — see task.md.)
 
     const verifyCodeFn = new lambdaNode.NodejsFunction(this, 'VerifyCodeFunction', {
       entry: path.join(__dirname, '../lambda/verifyCode/index.ts'),
