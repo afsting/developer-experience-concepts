@@ -116,20 +116,30 @@
     <p>
       A second CloudFront behavior (<code>/auth/*</code>, uncached, so
       <code>Set-Cookie</code> responses reach the browser same-origin) routes to
-      an API Gateway HTTP API backed by three Lambdas:
+      an API Gateway HTTP API backed by several Lambdas, including:
     </p>
     <ul>
-      <li><strong>Request code</strong> — checks the submitted email against an allowlist (DynamoDB — exact addresses or domain suffixes), generates a 6-digit OTP, stores only its <em>hash</em> with a short expiry, and emails it via SES. Returns the same generic response whether or not the email is actually allowlisted, to avoid leaking who's on the list.</li>
+      <li><strong>Request code</strong> — checks the submitted email against an allowlist (DynamoDB — exact addresses or domain suffixes), generates a 6-digit OTP, stores only its <em>hash</em> with a short expiry, and emails it via Resend. Returns the same generic response whether or not the email is actually allowlisted, to avoid leaking who's on the list.</li>
       <li><strong>Verify code</strong> — checks the submitted code against the stored hash, enforces a max-attempts lockout, and on success issues an <code>HttpOnly; Secure; SameSite=Lax</code> session cookie (14-day expiry) signed with an HMAC secret shared between the Lambdas and the CloudFront Function via a CloudFront KeyValueStore.</li>
-      <li><strong>Admin allowlist</strong> — a small <code>/admin.html</code> page (linked nowhere public) lets an admin session list/add/remove allowlist entries. Authorization comes entirely from an <code>admin</code> claim baked into the signed session token at login time — re-checked server-side on every request, never trusted from the client.</li>
+      <li><strong>Admin allowlist</strong> — a small <code>/admin.html</code> page (linked nowhere public) lets an admin session list/add/remove allowlist entries, and can also generate a short-lived, time-boxed <strong>magic link</strong> as a login fallback for anyone whose email doesn't arrive for reasons outside this site's control. Authorization comes entirely from an <code>admin</code> claim baked into the signed session token at login time — re-checked server-side on every request, never trusted from the client.</li>
     </ul>
     <p>
-      One real operational constraint worth being upfront about: the AWS
-      account's SES sending is in <strong>sandbox mode</strong>, so OTP emails
-      can only reach individually-verified recipient addresses rather than the
-      full allowlist automatically. Sharing this link with someone new means
-      verifying their address as an SES recipient first — a known v1
-      limitation, not a bug.
+      Login email was originally sent via Amazon SES, which turned out to be
+      the wrong tool for a low-volume personal project: SES's sandbox mode
+      requires every recipient to individually verify their address before
+      they can receive mail, and two separate production-access requests
+      (each with a detailed, specific use-case description) were denied with
+      the same boilerplate response and no actionable reason given either
+      time. That pattern is consistent with automated risk-scoring on
+      account age and history rather than a human evaluating the actual
+      request — not something a better-written appeal was likely to change.
+      Rather than keep working around it, the send path was migrated to
+      <a href="https://resend.com" target="_blank" rel="noopener">Resend</a>,
+      a transactional-email API that only requires the <em>sending domain</em>
+      to be verified (DKIM/SPF/DMARC — the same category of DNS setup SES
+      also needed), not each individual recipient. The migration touched one
+      Lambda and a handful of DNS records; the rest of the OTP flow above is
+      unchanged.
     </p>
 
     <h2 id="cicd">CI/CD Pipeline (GitHub Actions)</h2>
@@ -307,7 +317,7 @@
       <li><strong>S3</strong>: effectively $0.00 (well under 1 GB storage, negligible GET requests via CloudFront).</li>
       <li><strong>CloudFront</strong>: 1 TB free transfer/month on the free tier; well under that.</li>
       <li><strong>Route 53</strong>: ~$0.50/month hosted zone, plus the domain's annual registration cost amortized.</li>
-      <li><strong>OTP gate</strong> (Lambda, API Gateway, DynamoDB, SES): effectively $0.00 at this request volume — all pay-per-request with generous free tiers.</li>
+      <li><strong>OTP gate</strong> (Lambda, API Gateway, DynamoDB, Resend): effectively $0.00 at this request volume — all pay-per-request or free-tier, well under Resend's free-tier send limit.</li>
       <li><strong>AI assistant applet</strong> (Bedrock Haiku, plus the same Lambda/API Gateway/DynamoDB pattern): realistically ~$1-2/month even with regular interview-time usage, well under a $20/month ceiling set for the feature.</li>
       <li><strong>Total: under $1.50/month</strong> in steady state, watched by an AWS Budgets alarm (whole-account, $10/month threshold, forecasted and actual notifications) — a concrete, live demo of cost awareness rather than just a claim.</li>
     </ul>
@@ -321,7 +331,7 @@
     <ul>
       <li>A public ACM certificate in <code>us-east-1</code> (required for CloudFront), <strong>DNS-validated</strong> rather than email-validated, referencing the pre-existing hosted zone by fixed attributes (not <code>fromLookup</code>) so <code>cdk synth</code> doesn't need account/region context.</li>
       <li>Route 53 alias <code>A</code>/<code>AAAA</code> records pointing the subdomain at the CloudFront distribution.</li>
-      <li>SES verified at the <strong>domain level</strong> (<code>pages-enterprise.com</code>) rather than a single email identity — any sender address on that domain can send without a per-address confirmation click, and gets proper SPF/DKIM/DMARC alignment (the personal-Gmail identity used originally likely contributed to an early SES production-access denial).</li>
+      <li>Resend verified at the <strong>domain level</strong> against a dedicated subdomain, <code>send.pages-enterprise.com</code> — DKIM/SPF/DMARC records provisioned directly via the AWS CLI against the same Route 53 hosted zone, kept separate from any of the zone's other records so nothing collides.</li>
     </ul>
 
     <h2 id="repo-structure">Repository Structure</h2>
