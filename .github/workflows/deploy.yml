@@ -62,6 +62,7 @@ jobs:
           OTP_ADMIN_EMAIL: ${{ secrets.OTP_ADMIN_EMAIL }}
           OTP_SES_FROM_ADDRESS: ${{ secrets.OTP_SES_FROM_ADDRESS }}
           OTP_HMAC_SECRET: ${{ secrets.OTP_HMAC_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: npx cdk deploy --require-approval never --outputs-file cdk-outputs.json
 
       - name: Extract CDK outputs

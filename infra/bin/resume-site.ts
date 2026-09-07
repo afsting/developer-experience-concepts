@@ -37,4 +37,5 @@ new ResumeSiteStack(app, 'ResumeSiteStack', {
   otpAdminEmail: requireEnv('OTP_ADMIN_EMAIL'),
   otpSesFromAddress: requireEnv('OTP_SES_FROM_ADDRESS'),
   otpHmacSecret: requireEnv('OTP_HMAC_SECRET'),
+  resendApiKey: requireEnv('RESEND_API_KEY'),
 });
