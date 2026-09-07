@@ -26,7 +26,7 @@ const SESSION_TTL_SECONDS = 14 * 24 * 60 * 60; // matches the login session cook
 const s3 = new S3Client({});
 const bedrock = new BedrockRuntimeClient({});
 
-const SITE_DATA_FILES = ['content.json', 'dora-metrics.json', 'security-scorecard.json', '100-day-plan.json'] as const;
+const SITE_DATA_FILES = ['content.json', 'dora-metrics.json', 'security-scorecard.json', '100-day-plan.json', 'engineering-enablement.json'] as const;
 
 // Cached across warm invocations. The DORA/security files refresh daily via
 // their own scheduled workflows, so a short cache is plenty fresh and saves
