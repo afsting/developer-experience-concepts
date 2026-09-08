@@ -494,9 +494,9 @@ export class ResumeSiteStack extends cdk.Stack {
       actions: ['cloudfront-keyvaluestore:GetKey'],
       resources: [sessionKvs.keyValueStoreArn],
     }));
-    // Read-only, scoped to exactly the four public JSON files the
-    // assistant is allowed to answer from — never the raw résumé docx or
-    // JD source, which never leave `.tmp/` in the first place.
+    // Read-only, scoped to exactly the public JSON files the assistant is
+    // allowed to answer from — never the raw résumé docx or JD source,
+    // which never leave `.tmp/` in the first place.
     chatFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['s3:GetObject'],
       resources: [
@@ -504,6 +504,7 @@ export class ResumeSiteStack extends cdk.Stack {
         siteBucket.arnForObjects('dora-metrics.json'),
         siteBucket.arnForObjects('security-scorecard.json'),
         siteBucket.arnForObjects('100-day-plan.json'),
+        siteBucket.arnForObjects('engineering-enablement.json'),
       ],
     }));
     // Dedicated to this Lambda alone — never shared with the GitHub OIDC

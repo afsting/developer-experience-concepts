@@ -130,7 +130,7 @@ describe('ResumeSiteStack', () => {
     });
   });
 
-  test('Chat function IAM policy is scoped to exactly the four public JSON files', () => {
+  test('Chat function IAM policy is scoped to exactly the five public JSON files', () => {
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
@@ -141,6 +141,7 @@ describe('ResumeSiteStack', () => {
               Match.objectLike({ 'Fn::Join': Match.arrayWith([Match.arrayWith([Match.stringLikeRegexp('dora-metrics\\.json')])]) }),
               Match.objectLike({ 'Fn::Join': Match.arrayWith([Match.arrayWith([Match.stringLikeRegexp('security-scorecard\\.json')])]) }),
               Match.objectLike({ 'Fn::Join': Match.arrayWith([Match.arrayWith([Match.stringLikeRegexp('100-day-plan\\.json')])]) }),
+              Match.objectLike({ 'Fn::Join': Match.arrayWith([Match.arrayWith([Match.stringLikeRegexp('engineering-enablement\\.json')])]) }),
             ]),
           }),
         ]),

@@ -1,0 +1,55 @@
+{
+  "title": "Engineering Enablement Programs",
+  "framing": "How I build enablement programs, worked example: MuleSoft Days, a self-service training curriculum I designed and launched — 53+ documented participants, with continued organic use across the engineering organization years after launch. The structure below is the shape that program followed; the office-hours/coaching cadence is how I'd extend it in a formal Developer Experience role.",
+  "case_study": {
+    "name": "MuleSoft Days",
+    "problem": "API-led architecture and MuleSoft adoption were growing faster than any one team could onboard engineers 1:1. New contributors needed a consistent, credible on-ramp that didn't depend on whoever happened to be free that week.",
+    "approach": "A self-service, video-based curriculum engineers could work through at their own pace, deliberately built to reinforce the golden-path templates and reuse patterns already in place rather than teaching MuleSoft in the abstract.",
+    "outcome": "53+ documented participants at launch, with continued organic use well beyond the initial cohort — the strongest signal a self-service program actually stuck rather than fading once the launch push ended."
+  },
+  "learning_path": [
+    {
+      "module": "1",
+      "title": "Foundations",
+      "format": "Self-service video",
+      "description": "Core concepts and vocabulary, oriented around why the platform's conventions exist, not just what they are."
+    },
+    {
+      "module": "2",
+      "title": "Golden-Path Build",
+      "format": "Self-service video + hands-on exercise",
+      "description": "Build a real integration starting from the enterprise's golden-path template, reinforcing reuse over building from scratch."
+    },
+    {
+      "module": "3",
+      "title": "Patterns in Practice",
+      "format": "Self-service video",
+      "description": "Common integration patterns pulled directly from production examples, not textbook cases — the same patterns a new contributor will actually run into."
+    },
+    {
+      "module": "4",
+      "title": "Production Readiness",
+      "format": "Self-service video + checklist",
+      "description": "What separates a working integration from a production-ready one: testing, error handling, observability, and the review expectations engineers should anticipate."
+    }
+  ],
+  "cadence": [
+    {
+      "title": "Weekly office hours",
+      "description": "A standing, low-friction slot for whoever's mid-module and stuck — optional, drop-in, no prep required on either side."
+    },
+    {
+      "title": "Cohort check-ins",
+      "description": "A lightweight touchpoint partway through a cohort's progression, surfacing where the curriculum itself is unclear before it becomes everyone's individual problem."
+    },
+    {
+      "title": "Escalation to 1:1 coaching",
+      "description": "For anyone still stuck after office hours — the exception path, not the default, so the self-service model stays the primary on-ramp rather than becoming shadow 1:1 training."
+    }
+  ],
+  "reinforcement": [
+    "Golden-path template usage is directly observable (see the Golden-Path Demo section of how-it-was-built.html) — adoption isn't just self-reported.",
+    "Curriculum content stays tied to the real, current templates and patterns, not a static snapshot that drifts out of date.",
+    "Organic reuse well past the initial launch cohort is the real success signal — a program only leadership pushes stops the moment leadership stops pushing it."
+  ]
+}

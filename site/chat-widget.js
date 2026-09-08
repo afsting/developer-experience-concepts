@@ -46,6 +46,14 @@
         "What's his approach to stakeholder relationships?",
       ],
     },
+    'engineering-enablement': {
+      name: 'the Engineering Enablement page',
+      questions: [
+        'How does this program actually get adopted, not just launched?',
+        "What's the office-hours/coaching cadence for?",
+        'How does this map to the Community of Practice work?',
+      ],
+    },
     'how-it-was-built': {
       name: 'the How This Was Built page',
       questions: [
