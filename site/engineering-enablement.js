@@ -40,7 +40,7 @@
       return '<div class="highlight-card">' +
         '<h3>Module ' + esc(m.module) + ': ' + esc(m.title) + '</h3>' +
         '<p><em>' + esc(m.format) + '</em></p>' +
-        '<p>' + esc(m.description) + '</p>' +
+        (m.description ? '<p>' + esc(m.description) + '</p>' : '') +
         '</div>';
     }).join('');
   }
