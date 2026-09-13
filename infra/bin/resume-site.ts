@@ -35,7 +35,6 @@ new ResumeSiteStack(app, 'ResumeSiteStack', {
    */
   description: 'Raymond Page résumé site: S3 + CloudFront (OAC)',
   otpAdminEmail: requireEnv('OTP_ADMIN_EMAIL'),
-  otpSesFromAddress: requireEnv('OTP_SES_FROM_ADDRESS'),
   otpHmacSecret: requireEnv('OTP_HMAC_SECRET'),
   resendApiKey: requireEnv('RESEND_API_KEY'),
 });

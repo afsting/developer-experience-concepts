@@ -11,7 +11,6 @@ import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
-import * as ses from 'aws-cdk-lib/aws-ses';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
@@ -45,13 +44,6 @@ export interface ResumeSiteStackProps extends cdk.StackProps {
   readonly otpAdminEmail?: string;
 
   /**
-   * SES identity OTP verification emails are sent from. Must be verified
-   * in SES (this stack provisions the identity, but AWS still emails a
-   * confirmation link that a human must click) before sends succeed.
-   */
-  readonly otpSesFromAddress?: string;
-
-  /**
    * Hex-encoded HMAC secret used to sign/verify OTP-gate session cookies,
    * shared between the CloudFront Function and the verify-code/admin
    * Lambdas via the CloudFront KeyValueStore. Must stay stable across
@@ -80,7 +72,6 @@ export class ResumeSiteStack extends cdk.Stack {
     super(scope, id, props);
 
     const otpAdminEmail = props?.otpAdminEmail ?? 'admin@example.invalid';
-    const otpSesFromAddress = props?.otpSesFromAddress ?? 'admin@example.invalid';
     const otpHmacSecret = props?.otpHmacSecret ?? crypto.randomBytes(32).toString('hex');
     const resendApiKey = props?.resendApiKey ?? 'placeholder-resend-key';
     // Derived from the verified Resend sending domain (send.pages-enterprise.com,
@@ -187,34 +178,6 @@ export class ResumeSiteStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: 'ttl',
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-
-    // SES identity OTP emails are sent from. Verified at the *domain*
-    // level (pages-enterprise.com) rather than a single email address —
-    // CDK provisions the DKIM CNAME records directly in siteHostedZone, so
-    // there's no confirmation-link email to click, and any address at the
-    // domain (e.g. otpSesFromAddress) can send once DKIM propagates. This
-    // replaced the old per-address `ses.Identity.email(...)` identity,
-    // which relied on a personal Gmail sender and was hurting
-    // deliverability (no SPF/DKIM/DMARC alignment). SES still starts in
-    // sandbox mode, which requires each *recipient* to be individually
-    // verified until production access is requested (see task.md —
-    // decided to verify recipients manually rather than request
-    // production access).
-    //
-    // Custom MAIL FROM domain: without this, the envelope sender
-    // (Return-Path) is a generic amazonses.com address, so SPF never
-    // aligns with the visible From domain — DKIM alignment alone is
-    // usually enough to pass DMARC, but a custom MAIL FROM domain is a
-    // specific, checkable item in AWS's own SES best-practices guidance
-    // (linked directly in the production-access denial email), so it's
-    // worth closing regardless of whether it was the actual reason for
-    // the denial. Must be a subdomain of the identity; CDK auto-manages
-    // the required MX + SPF TXT records in siteHostedZone the same way
-    // it already does for the DKIM CNAME records above.
-    new ses.EmailIdentity(this, 'OtpSesFromIdentity', {
-      identity: ses.Identity.publicHostedZone(siteHostedZone),
-      mailFromDomain: `mail.${siteHostedZone.zoneName}`,
     });
 
     // CloudFront KeyValueStore holding the HMAC secret used to sign/verify
@@ -365,7 +328,7 @@ export class ResumeSiteStack extends cdk.Stack {
     // visibility on either end (the motivating case: a candidate's
     // interviewer on a locked-down corporate domain). An admin generates a
     // short-lived, single-use link from admin.html and shares it via a
-    // channel they already trust instead of relying on SES reaching an
+    // channel they already trust instead of relying on email reaching an
     // unfamiliar inbox.
     const magicLinkTable = new dynamodb.Table(this, 'MagicLinkTable', {
       partitionKey: { name: 'token', type: dynamodb.AttributeType.STRING },
@@ -753,11 +716,6 @@ export class ResumeSiteStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'OtpBootstrapAdminEmail', {
       value: otpAdminEmail,
       description: 'Email seeded as the bootstrap admin for /admin.html',
-    });
-
-    new cdk.CfnOutput(this, 'OtpSesFromAddressOutput', {
-      value: otpSesFromAddress,
-      description: 'SES sender address, verified via the pages-enterprise.com domain identity (no confirmation email to click)',
     });
 
     new cdk.CfnOutput(this, 'SiteUrl', {

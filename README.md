@@ -138,9 +138,10 @@ The site is served at `resume.pages-enterprise.com`:
   directly in `infra/lib/resume-site-stack.ts`.
 - Route 53 alias `A`/`AAAA` records point the subdomain at the CloudFront
   distribution, in the pre-existing `pages-enterprise.com` hosted zone.
-- SES is verified at the domain level (`pages-enterprise.com`), so any
-  sender address on that domain (e.g. `noreply@pages-enterprise.com`)
-  can send without a per-address confirmation-link click.
+- Login-code email is sent via [Resend](https://resend.com), verified
+  at the sending-domain level (`send.pages-enterprise.com`) via DNS
+  records (DKIM/SPF/DMARC) in the same hosted zone — see
+  `site/how-it-was-built.html` for why this replaced SES.
 
 ---
 
