@@ -219,6 +219,11 @@ describe('ResumeSiteStack', () => {
         expect(actionList).not.toContain('ses:SendEmail');
       }
     }
+
+    // The SES identity/MAIL FROM domain (OtpSesFromIdentity) was removed
+    // once Resend was confirmed working in production — no AWS::SES
+    // resource should remain in the stack.
+    template.resourceCountIs('AWS::SES::EmailIdentity', 0);
   });
 
   test('/api/chat is a CloudFront behavior with caching disabled', () => {
