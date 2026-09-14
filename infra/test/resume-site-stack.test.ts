@@ -42,6 +42,43 @@ describe('ResumeSiteStack', () => {
     });
   });
 
+  test('Security response headers policy sets HSTS, nosniff, frame-deny, referrer policy, and a CSP with no unsafe-inline scripts', () => {
+    template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+      ResponseHeadersPolicyConfig: {
+        SecurityHeadersConfig: Match.objectLike({
+          StrictTransportSecurity: Match.objectLike({ Override: true, IncludeSubdomains: true }),
+          ContentTypeOptions: { Override: true },
+          FrameOptions: Match.objectLike({ FrameOption: 'DENY', Override: true }),
+          ReferrerPolicy: Match.objectLike({ ReferrerPolicy: 'strict-origin-when-cross-origin', Override: true }),
+          ContentSecurityPolicy: Match.objectLike({
+            ContentSecurityPolicy: Match.stringLikeRegexp("script-src 'self'(?! .*unsafe-inline)"),
+            Override: true,
+          }),
+        }),
+        CustomHeadersConfig: Match.objectLike({
+          Items: Match.arrayWith([
+            Match.objectLike({ Header: 'Permissions-Policy' }),
+          ]),
+        }),
+      },
+    });
+  });
+
+  test('Security response headers policy is attached to every CloudFront behavior', () => {
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        DefaultCacheBehavior: Match.objectLike({
+          ResponseHeadersPolicyId: Match.anyValue(),
+        }),
+        CacheBehaviors: Match.arrayWith(
+          // *.css, *.js, /auth/*, /api/chat — every additional behavior,
+          // not just some of them.
+          Array(4).fill(Match.objectLike({ ResponseHeadersPolicyId: Match.anyValue() })),
+        ),
+      }),
+    });
+  });
+
   test('CloudFront distribution has a default root object', () => {
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: {

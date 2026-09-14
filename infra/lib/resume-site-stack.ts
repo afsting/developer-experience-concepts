@@ -612,6 +612,74 @@ export class ResumeSiteStack extends cdk.Stack {
 
     const authApiDomain = `${authApi.ref}.execute-api.${this.region}.${this.urlSuffix}`;
 
+    // ----------------------------------------------------------------
+    // Security response headers — applied to every CloudFront behavior.
+    // The site previously sent none of these at all (no HSTS, no CSP,
+    // nothing) — a real gap for a site whose own content pitches
+    // DevSecOps practices. CSP is scoped to this site's actual resource
+    // origins, not a blanket allow: 'self' plus the two concrete
+    // cross-origin fetches the site makes (raw.githubusercontent.com for
+    // the live catalog-info.yaml fetch in catalog-render.js, github.com
+    // for the three CI status badge <img>s in how-it-was-built.html).
+    // script-src has no 'unsafe-inline' — the two pages that used to need
+    // it (login.html, admin.html) had their inline <script> blocks
+    // extracted to login.js/admin.js specifically to allow this.
+    // style-src keeps 'unsafe-inline' for now: inline style="" attributes
+    // are still used across most pages (e.g. the repeated header-link
+    // style, per-page print CSS) — removing those is a separate,
+    // larger cleanup, not bundled into this change.
+    // ----------------------------------------------------------------
+    const securityHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+      responseHeadersPolicyName: `${this.stackName}-security-headers`,
+      comment: 'Baseline security headers for every response',
+      securityHeadersBehavior: {
+        strictTransportSecurity: {
+          // Not enabling `preload` — that's a one-way opt-in (submission
+          // to browsers' built-in HSTS preload lists is effectively
+          // permanent to reverse), not worth committing to for a
+          // personal-project domain this new.
+          accessControlMaxAge: cdk.Duration.days(365),
+          includeSubdomains: true,
+          override: true,
+        },
+        contentTypeOptions: { override: true },
+        frameOptions: {
+          frameOption: cloudfront.HeadersFrameOption.DENY,
+          override: true,
+        },
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+        contentSecurityPolicy: {
+          contentSecurityPolicy: [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https://github.com",
+            "font-src 'self'",
+            "connect-src 'self' https://raw.githubusercontent.com",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'",
+          ].join('; '),
+          override: true,
+        },
+      },
+      customHeadersBehavior: {
+        // Not part of ResponseSecurityHeadersBehavior — CDK has no typed
+        // Permissions-Policy field, so it goes through custom headers.
+        customHeaders: [
+          {
+            header: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+            override: true,
+          },
+        ],
+      },
+    });
+
     // CloudFront Function gating the default (static site) behavior.
     // /login.html is exempted in the function code itself — it's the one
     // page that must stay reachable without a session.
@@ -632,6 +700,7 @@ export class ResumeSiteStack extends cdk.Stack {
         origin: new origins.S3Origin(siteBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: htmlCachePolicy,
+        responseHeadersPolicy: securityHeadersPolicy,
         compress: true,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         functionAssociations: [{
@@ -646,6 +715,7 @@ export class ResumeSiteStack extends cdk.Stack {
           origin: new origins.S3Origin(siteBucket),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: staticAssetCachePolicy,
+          responseHeadersPolicy: securityHeadersPolicy,
           compress: true,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         },
@@ -653,6 +723,7 @@ export class ResumeSiteStack extends cdk.Stack {
           origin: new origins.S3Origin(siteBucket),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: staticAssetCachePolicy,
+          responseHeadersPolicy: securityHeadersPolicy,
           compress: true,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         },
@@ -725,6 +796,7 @@ export class ResumeSiteStack extends cdk.Stack {
       viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
       allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
       cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      responseHeadersPolicy: securityHeadersPolicy,
       // NOTE: must NOT forward the viewer's Host header (which is the
       // CloudFront distribution domain) to the API Gateway origin — API
       // Gateway rejects requests whose Host header doesn't match its own
@@ -750,6 +822,7 @@ export class ResumeSiteStack extends cdk.Stack {
       viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
       allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
       cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      responseHeadersPolicy: securityHeadersPolicy,
       originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
     });
 
