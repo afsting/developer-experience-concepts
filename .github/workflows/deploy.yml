@@ -113,15 +113,38 @@ jobs:
           # explicitly exempted from the gate. A few retries with a short
           # backoff absorb any brief propagation lag right after the
           # invalidation above, rather than flaking an otherwise-good deploy.
-          URL="${{ steps.cdk-outputs.outputs.site_url }}/login.html"
+          SITE="${{ steps.cdk-outputs.outputs.site_url }}"
+          URL="$SITE/login.html"
           for i in 1 2 3 4 5; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
             if [ "$STATUS" = "200" ]; then
               echo "Smoke test passed: $URL returned 200"
-              exit 0
+              break
+            fi
+            if [ "$i" = "5" ]; then
+              echo "Smoke test failed: $URL did not return 200 after 5 attempts"
+              exit 1
             fi
             echo "Attempt $i: $URL returned $STATUS, retrying in 5s..."
             sleep 5
           done
-          echo "Smoke test failed: $URL did not return 200 after 5 attempts"
-          exit 1
+
+          # The gate itself: an unauthenticated request to a gated path
+          # must be redirected to login, never served. A green deploy
+          # that had silently dropped the CloudFront Function association
+          # would otherwise look identical to a healthy one.
+          GATE=$(curl -s -o /dev/null -w "%{http_code} %{redirect_url}" "$SITE/")
+          case "$GATE" in
+            "302 $SITE/login.html") echo "Smoke test passed: / is gated ($GATE)" ;;
+            *) echo "Smoke test failed: expected / to 302 to login.html, got: $GATE"; exit 1 ;;
+          esac
+
+          # The auth API behind /auth/* is wired through CloudFront to
+          # API Gateway and answering.
+          SESSION=$(curl -s "$SITE/auth/session")
+          if [ "$SESSION" = '{"authenticated":false}' ]; then
+            echo "Smoke test passed: /auth/session reachable"
+          else
+            echo "Smoke test failed: unexpected /auth/session body: $SESSION"
+            exit 1
+          fi

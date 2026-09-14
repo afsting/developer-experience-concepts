@@ -77,8 +77,12 @@ export class ResumeSiteStack extends cdk.Stack {
     // Derived from the verified Resend sending domain (send.pages-enterprise.com,
     // a fresh subdomain kept separate from SES's mail.pages-enterprise.com to
     // avoid any DNS record collision) — not secret, so kept as a plain
-    // constant rather than another required repo secret.
-    const resendFromAddress = 'noreply@send.pages-enterprise.com';
+    // constant rather than another required repo secret. A display name
+    // and a real reply-to address are deliberate: corporate mail gateways
+    // score both, and OTP mail from a bare noreply@ subdomain is exactly
+    // what the magic-link fallback exists to work around.
+    const resendFromAddress = 'Raymond Page <noreply@send.pages-enterprise.com>';
+    const resendReplyTo = 'raymond.page@mutualofomaha.com';
 
     // ----------------------------------------------------------------
     // Custom domain — resume.pages-enterprise.com
@@ -243,6 +247,10 @@ export class ResumeSiteStack extends cdk.Stack {
       policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [allowlistTable.tableArn],
       }),
+      // The runtime's bundled SDK already has DynamoDB putItem; the
+      // default would npm-install the latest SDK inside the Lambda on
+      // every deploy for nothing.
+      installLatestAwsSdk: false,
     });
 
     // ---- API Lambdas behind /auth/* ----
@@ -256,6 +264,7 @@ export class ResumeSiteStack extends cdk.Stack {
         ALLOWLIST_TABLE_NAME: allowlistTable.tableName,
         RESEND_API_KEY: resendApiKey,
         RESEND_FROM_ADDRESS: resendFromAddress,
+        RESEND_REPLY_TO: resendReplyTo,
       },
       bundling: { externalModules: [] },
     });

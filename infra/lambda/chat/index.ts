@@ -64,6 +64,7 @@ const PAGE_NAMES: Record<string, string> = {
   'dora-metrics': 'the DORA Metrics page',
   'security-scorecard': 'the Security Scorecard page',
   '100-day-plan': 'the 100-Day Plan page',
+  'engineering-enablement': 'the Engineering Enablement page',
   'how-it-was-built': 'the How This Was Built page',
 };
 

@@ -124,10 +124,13 @@ function computeMetrics(runs) {
   };
 
   // --- Change failure rate ---
+  // Cancelled/skipped runs are neither a deploy nor a failed deploy, so
+  // they're excluded from the denominator rather than diluting the rate.
+  const attempted = successful.length + failed.length;
   const changeFailureRate = {
-    percent: total > 0 ? round((failed.length / total) * 100, 1) : null,
+    percent: attempted > 0 ? round((failed.length / attempted) * 100, 1) : null,
     failed: failed.length,
-    total,
+    total: attempted,
   };
 
   // --- Mean time to restore ---

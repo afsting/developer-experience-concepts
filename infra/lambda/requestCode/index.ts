@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { createHash, randomInt } from 'node:crypto';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { ddb } from '../common/dynamo';
 import { checkAllowlist } from '../common/allowlist';
 
@@ -8,7 +9,12 @@ const OTP_TABLE_NAME = process.env.OTP_TABLE_NAME!;
 const ALLOWLIST_TABLE_NAME = process.env.ALLOWLIST_TABLE_NAME!;
 const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 const RESEND_FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS!;
+const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO!;
 const OTP_TTL_SECONDS = 10 * 60;
+// Anyone who knows an allowlisted address could otherwise trigger an
+// unbounded stream of emails to it (and burn through the Resend quota);
+// the stage-level throttle alone doesn't stop a slow drip.
+const RESEND_COOLDOWN_SECONDS = 60;
 
 // Anti-enumeration: always return the same response, whether or not the
 // submitted email is actually allowlisted, so this endpoint can't be used
@@ -45,16 +51,28 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
   const codeHash = createHash('sha256').update(code).digest('hex');
   const nowSeconds = Math.floor(Date.now() / 1000);
 
-  await ddb.send(new PutCommand({
-    TableName: OTP_TABLE_NAME,
-    Item: {
-      email,
-      codeHash,
-      attempts: 0,
-      createdAt: nowSeconds,
-      ttl: nowSeconds + OTP_TTL_SECONDS,
-    },
-  }));
+  try {
+    await ddb.send(new PutCommand({
+      TableName: OTP_TABLE_NAME,
+      Item: {
+        email,
+        codeHash,
+        attempts: 0,
+        createdAt: nowSeconds,
+        ttl: nowSeconds + OTP_TTL_SECONDS,
+      },
+      ConditionExpression: 'attribute_not_exists(email) OR createdAt < :cutoff',
+      ExpressionAttributeValues: { ':cutoff': nowSeconds - RESEND_COOLDOWN_SECONDS },
+    }));
+  } catch (err) {
+    if (err instanceof ConditionalCheckFailedException) {
+      // Still inside the cooldown from the previous code — the earlier
+      // email is on its way. Same generic response, so this can't be
+      // used to probe the allowlist either.
+      return GENERIC_RESPONSE;
+    }
+    throw err;
+  }
 
   try {
     // Resend's transactional email API — replaced SES here specifically
@@ -71,6 +89,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       },
       body: JSON.stringify({
         from: RESEND_FROM_ADDRESS,
+        reply_to: RESEND_REPLY_TO,
         to: [email],
         subject: 'Your verification code',
         text: `Your verification code is ${code}. It expires in 10 minutes. If you didn't request this, you can ignore this email.`,
