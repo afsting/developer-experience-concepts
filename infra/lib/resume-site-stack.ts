@@ -104,6 +104,19 @@ export interface ResumeSiteStackProps extends cdk.StackProps {
    * same account so the role names don't collide with the original's.
    */
   readonly githubRoleNamePrefix?: string;
+
+  /**
+   * GitHub owner/org and repo name the IAM trust policies match against
+   * (via a wildcarded `sub` claim — see the comment above
+   * githubSubPullRequest). Defaults to this stack's actual repo,
+   * afsting/developer-experience-concepts. A second copy of this stack
+   * deployed for a *different* repo (e.g. one created from this one as a
+   * GitHub template) MUST override githubRepoName, or its GitHub Actions
+   * workflows can never assume the roles this stack creates — the OIDC
+   * token's `sub` claim simply won't match.
+   */
+  readonly githubOwner?: string;
+  readonly githubRepoName?: string;
 }
 
 export class ResumeSiteStack extends cdk.Stack {
@@ -793,8 +806,8 @@ export class ResumeSiteStack extends cdk.Stack {
         });
     const githubRoleNamePrefix = props?.githubRoleNamePrefix ?? 'github-actions-resume-site';
 
-    const githubOwner = 'afsting';
-    const githubRepoName = 'developer-experience-concepts';
+    const githubOwner = props?.githubOwner ?? 'afsting';
+    const githubRepoName = props?.githubRepoName ?? 'developer-experience-concepts';
 
     // GitHub decorates the `sub` claim with internal owner/repo IDs (e.g.
     // `repo:owner@12345/repo@67890:pull_request`) whenever the org or repo

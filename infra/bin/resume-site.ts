@@ -47,4 +47,6 @@ new ResumeSiteStack(app, process.env.STACK_NAME || 'ResumeSiteStack', {
   hostedZoneId: process.env.HOSTED_ZONE_ID,
   githubOidcProviderArn: process.env.GITHUB_OIDC_PROVIDER_ARN,
   githubRoleNamePrefix: process.env.GITHUB_ROLE_NAME_PREFIX,
+  githubOwner: process.env.GITHUB_REPO_OWNER,
+  githubRepoName: process.env.GITHUB_REPO_NAME,
 });
