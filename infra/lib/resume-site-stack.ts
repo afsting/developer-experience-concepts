@@ -26,10 +26,18 @@ import { Construct } from 'constructs';
  *
  * Architecture decisions documented in site/how-it-was-built.html.
  *
- * Custom domain: resume.pages-enterprise.com, served over the
- * CloudFront distribution via an ACM certificate (DNS-validated) and
- * Route 53 alias A/AAAA records, both provisioned in this stack against
- * the pre-existing pages-enterprise.com hosted zone.
+ * Custom domain: resume.pages-enterprise.com by default (overridable via
+ * ResumeSiteStackProps — see siteDomainName/hostedZone* below), served
+ * over the CloudFront distribution via an ACM certificate (DNS-validated)
+ * and Route 53 alias A/AAAA records, both provisioned in this stack
+ * against the pre-existing hosted zone.
+ *
+ * Deployable a second, independent time into the same AWS account — e.g.
+ * to time-test the "Use this template" golden-path claim without
+ * touching the original deployment — by overriding siteDomainName,
+ * githubOidcProviderArn (import the existing provider; AWS allows only
+ * one per issuer URL per account), and githubRoleNamePrefix so nothing
+ * collides. A deploy with no props behaves exactly as it always has.
  */
 
 export interface ResumeSiteStackProps extends cdk.StackProps {
@@ -62,6 +70,40 @@ export interface ResumeSiteStackProps extends cdk.StackProps {
    * back to a non-functional placeholder only for local/test synth.
    */
   readonly resendApiKey?: string;
+
+  /**
+   * Custom domain this stack serves, and the pre-existing public Route 53
+   * hosted zone backing it. All three default to the values this stack
+   * has always used (resume.pages-enterprise.com in the pages-enterprise.com
+   * zone) — a deploy with no props behaves exactly as before. Override
+   * when deploying a *second*, independent copy of this stack (e.g.
+   * proving out the "Use this template" golden-path claim) so its Route 53
+   * alias records target a different name instead of colliding with the
+   * original site's.
+   */
+  readonly siteDomainName?: string;
+  readonly hostedZoneName?: string;
+  readonly hostedZoneId?: string;
+
+  /**
+   * ARN of an existing GitHub Actions OIDC provider (for
+   * token.actions.githubusercontent.com) to import instead of creating a
+   * new one. AWS allows only one OIDC provider per issuer URL per
+   * account — a second stack deployed into an account that already has
+   * one MUST import it via this prop, or `cdk deploy` fails outright
+   * trying to create a duplicate. Leave unset for a stack's first deploy
+   * into a given account (the common case, and this stack's own default).
+   */
+  readonly githubOidcProviderArn?: string;
+
+  /**
+   * Name prefix for the three GitHub Actions IAM roles this stack
+   * creates (diff/deploy/metrics — see the "GitHub Actions OIDC" section
+   * below). Defaults to 'github-actions-resume-site', this stack's actual
+   * deployed role names. Override when deploying a second copy into the
+   * same account so the role names don't collide with the original's.
+   */
+  readonly githubRoleNamePrefix?: string;
 }
 
 export class ResumeSiteStack extends cdk.Stack {
@@ -85,14 +127,16 @@ export class ResumeSiteStack extends cdk.Stack {
     const resendReplyTo = 'raymond.page@mutualofomaha.com';
 
     // ----------------------------------------------------------------
-    // Custom domain — resume.pages-enterprise.com
+    // Custom domain — resume.pages-enterprise.com by default (see the
+    // siteDomainName/hostedZone* props above for why these are
+    // overridable).
     // Referenced by fixed attributes (not `fromLookup`) so synth doesn't
     // need an explicit account/region context lookup.
     // ----------------------------------------------------------------
-    const siteDomainName = 'resume.pages-enterprise.com';
+    const siteDomainName = props?.siteDomainName ?? 'resume.pages-enterprise.com';
     const siteHostedZone = route53.PublicHostedZone.fromPublicHostedZoneAttributes(this, 'SiteHostedZone', {
-      zoneName: 'pages-enterprise.com',
-      hostedZoneId: 'Z09464661R0CYHRXA10JN',
+      zoneName: props?.hostedZoneName ?? 'pages-enterprise.com',
+      hostedZoneId: props?.hostedZoneId ?? 'Z09464661R0CYHRXA10JN',
     });
 
     const siteCertificate = new acm.Certificate(this, 'SiteCertificate', {
@@ -737,14 +781,17 @@ export class ResumeSiteStack extends cdk.Stack {
     // GitHub Actions OIDC — lets GitHub Actions assume short-lived AWS
     // roles instead of storing long-lived access keys as secrets.
     // The OIDC provider is account-wide (only one is allowed per AWS
-    // account for a given issuer URL), so future repos deployed into
-    // this account can reuse it by importing the same provider ARN
-    // instead of creating a new one.
+    // account for a given issuer URL) — a second stack deployed into an
+    // account that already has one must import it via githubOidcProviderArn
+    // instead of creating a new one, which is why that prop exists.
     // ----------------------------------------------------------------
-    const githubOidcProvider = new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
-      url: 'https://token.actions.githubusercontent.com',
-      clientIds: ['sts.amazonaws.com'],
-    });
+    const githubOidcProvider = props?.githubOidcProviderArn
+      ? iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(this, 'GitHubOidcProvider', props.githubOidcProviderArn)
+      : new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
+          url: 'https://token.actions.githubusercontent.com',
+          clientIds: ['sts.amazonaws.com'],
+        });
+    const githubRoleNamePrefix = props?.githubRoleNamePrefix ?? 'github-actions-resume-site';
 
     const githubOwner = 'afsting';
     const githubRepoName = 'developer-experience-concepts';
@@ -777,7 +824,7 @@ export class ResumeSiteStack extends cdk.Stack {
     // this repo). Can only assume the lookup/deploy roles to read stack
     // state — no write access to the site bucket or CloudFront.
     const githubDiffRole = new iam.Role(this, 'GitHubActionsDiffRole', {
-      roleName: 'github-actions-resume-site-diff',
+      roleName: `${githubRoleNamePrefix}-diff`,
       description: 'Read-only role assumed by GitHub Actions to run `cdk diff` on pull requests',
       assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
         StringEquals: {
@@ -801,7 +848,7 @@ export class ResumeSiteStack extends cdk.Stack {
     // directly to the site bucket and invalidate CloudFront (used by the
     // `aws s3 sync` / `aws cloudfront create-invalidation` steps).
     const githubDeployRole = new iam.Role(this, 'GitHubActionsDeployRole', {
-      roleName: 'github-actions-resume-site-deploy',
+      roleName: `${githubRoleNamePrefix}-deploy`,
       description: 'Role assumed by GitHub Actions to deploy the resume site on push to main',
       assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
         StringEquals: {
@@ -843,7 +890,7 @@ export class ResumeSiteStack extends cdk.Stack {
     const githubSubScheduledOrDispatch = `repo:${githubOwner}*/${githubRepoName}*:ref:refs/heads/main`;
 
     const githubMetricsRole = new iam.Role(this, 'GitHubActionsMetricsRole', {
-      roleName: 'github-actions-resume-site-metrics',
+      roleName: `${githubRoleNamePrefix}-metrics`,
       description: 'Role assumed by GitHub Actions to publish scheduled data JSON (DORA metrics, security scorecard) to the site bucket',
       assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
         StringEquals: {
