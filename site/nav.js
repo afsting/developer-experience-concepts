@@ -16,51 +16,41 @@
     { page: 'how-it-was-built', href: 'how-it-was-built.html', label: 'How This Was Built' },
   ];
 
-  // The Admin link is only shown to the visitor whose most recent OTP
-  // verification came back with `admin: true` (see login.html). This is a
-  // UI convenience only, not a security boundary — the /admin API and
-  // admin.html's own Lambda both re-check the signed session cookie
-  // server-side regardless of what's shown in nav.
-  function isAdmin() {
-    try {
-      return window.localStorage.getItem('isAdmin') === 'true';
-    } catch (e) {
-      return false;
+  var currentPage = document.body.getAttribute('data-page');
+
+  function navItem(item) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = item.href;
+    a.textContent = item.label;
+    if (item.page === currentPage) {
+      a.setAttribute('aria-current', 'page');
     }
+    li.appendChild(a);
+    return li;
   }
 
   function renderGlobalNav() {
     var mount = document.getElementById('global-nav');
-    if (!mount) return;
-
-    var items = GLOBAL_NAV.slice();
-    if (isAdmin()) {
-      items.push({ page: 'admin', href: 'admin.html', label: 'Admin' });
-    }
-
-    var currentPage = document.body.getAttribute('data-page');
+    if (!mount) return null;
 
     var ul = document.createElement('ul');
-    items.forEach(function (item) {
-      var li = document.createElement('li');
-      var a = document.createElement('a');
-      a.href = item.href;
-      a.textContent = item.label;
-      if (item.page === currentPage) {
-        a.setAttribute('aria-current', 'page');
-      }
-      li.appendChild(a);
-      ul.appendChild(li);
+    GLOBAL_NAV.forEach(function (item) {
+      ul.appendChild(navItem(item));
     });
 
     mount.appendChild(ul);
+    return ul;
   }
 
   // Shows "Logged in as <email>" + a Log out button in the header's
-  // upper-left corner. The session cookie is HttpOnly (unreadable from
-  // JS), so this asks the server for the signed session's identity rather
-  // than trusting anything stored client-side.
-  function renderSessionBar() {
+  // upper-left corner, and appends the Admin nav link when the session
+  // carries the admin claim. The session cookie is HttpOnly (unreadable
+  // from JS), so this asks the server for the signed session's identity
+  // rather than trusting anything stored client-side. Showing the link is
+  // a UI convenience only, not a security boundary — the /admin API
+  // re-checks the signed session cookie server-side regardless.
+  function renderSessionBar(navList) {
     var globalNavMount = document.getElementById('global-nav');
     if (!globalNavMount || !globalNavMount.parentNode) return;
 
@@ -76,6 +66,10 @@
           return;
         }
 
+        if (data.admin && navList) {
+          navList.appendChild(navItem({ page: 'admin', href: 'admin.html', label: 'Admin' }));
+        }
+
         var emailSpan = document.createElement('span');
         emailSpan.className = 'session-bar-email';
         emailSpan.textContent = 'Logged in as ' + data.email;
@@ -89,7 +83,6 @@
           fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' })
             .catch(function () { /* cookie clear is best-effort; still redirect */ })
             .then(function () {
-              try { window.localStorage.removeItem('isAdmin'); } catch (e) { /* ignore */ }
               window.location.href = '/login.html';
             });
         });
@@ -100,6 +93,5 @@
       .catch(function () { bar.remove(); });
   }
 
-  renderGlobalNav();
-  renderSessionBar();
+  renderSessionBar(renderGlobalNav());
 })();

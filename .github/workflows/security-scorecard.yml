@@ -59,6 +59,8 @@ jobs:
       - name: Compute security scorecard
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Must match the --audit-level in cdk-diff.yml / deploy.yml.
+          NPM_AUDIT_GATE_LEVEL: high
         run: node scripts/security-scorecard.mjs
 
       - name: Configure AWS credentials (OIDC)

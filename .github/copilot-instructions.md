@@ -36,6 +36,30 @@ site/                       Static site, no build tooling required to view
 - Custom domain support exists but is commented out — see the class doc
   comment at the top of the stack for the exact steps to enable it.
 
+## Email delivery (Resend)
+
+- The OTP login-code email (`infra/lambda/requestCode/index.ts`) sends via
+  [Resend](https://resend.com)'s REST API (`POST https://api.resend.com/emails`,
+  called with the runtime's built-in `fetch` — no SDK dependency), **not** SES.
+  SES was used originally but was migrated off entirely on 2026-09-06/07 (#67,
+  #68) because its sandbox mode requires per-recipient verification; the SES
+  identity and its DNS records were removed on 2026-09-13 (#73) once Resend
+  had been proven working in production. Do not reintroduce SES for this path.
+- Sending domain is `send.pages-enterprise.com` — a subdomain kept deliberately
+  separate from anything SES-related to avoid DNS record collisions. Verified
+  via DKIM/SPF/DMARC DNS records CDK does **not** manage (added manually to the
+  `pages-enterprise.com` Route 53 hosted zone, `Z09464661R0CYHRXA10JN` — see
+  task.md for the exact records if you need to reproduce them).
+- `RESEND_API_KEY` is a required repo secret, wired through as a plain Lambda
+  env var on `RequestCodeFunction` only (see `resendApiKey` prop in
+  `infra/lib/resume-site-stack.ts`) — same pattern as `OTP_HMAC_SECRET`, not
+  Secrets Manager. The from-address (`RESEND_FROM_ADDRESS`,
+  `noreply@send.pages-enterprise.com`) is a hardcoded plain-text constant in
+  the stack, not a secret.
+- Rotating the key or checking delivery status/logs happens in the Resend
+  dashboard (resend.com) — there's no AWS-side equivalent to `aws sesv2`
+  commands for this provider; it's a normal third-party HTTPS API.
+
 ## GitHub Actions OIDC — the one thing to get right
 
 - `deploy.yml` and `cdk-diff.yml` use `aws-actions/configure-aws-credentials@v4`
@@ -93,8 +117,17 @@ the script syntax and is also an injection risk. Pass the value through
 cd infra
 npm install
 npm run build       # tsc
-npm test            # jest unit tests
-npx cdk synth        # dry-run CloudFormation synth
+npm test            # jest unit tests — no env vars needed, stack is
+                     # constructed with no props and falls back to
+                     # placeholder defaults
+
+# synth/diff/deploy construct the stack via bin/resume-site.ts, which calls
+# requireEnv() and throws if any of these are unset:
+export OTP_ADMIN_EMAIL=test@example.com
+export OTP_HMAC_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+export RESEND_API_KEY=test   # real key only needed for an actual deploy
+
+npx cdk synth         # dry-run CloudFormation synth
 npx cdk diff --profile default
 npx cdk deploy --profile default --require-approval never
 ```

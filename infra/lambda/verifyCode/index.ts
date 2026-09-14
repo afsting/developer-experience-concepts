@@ -36,7 +36,10 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
 
   const record = await ddb.send(new GetCommand({ TableName: OTP_TABLE_NAME, Key: { email } }));
   const item = record.Item;
-  if (!item || item.attempts >= MAX_ATTEMPTS) {
+  // Check expiry here rather than trusting DynamoDB TTL, which only
+  // guarantees deletion within ~48 hours of the ttl timestamp.
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!item || item.attempts >= MAX_ATTEMPTS || typeof item.ttl !== 'number' || item.ttl < nowSeconds) {
     return invalidCodeResponse();
   }
 
@@ -65,7 +68,6 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   const hmacSecret = await getHmacSecret();
-  const nowSeconds = Math.floor(Date.now() / 1000);
   const token = signSession({ email, admin, exp: nowSeconds + SESSION_TTL_SECONDS }, hmacSecret);
 
   return {

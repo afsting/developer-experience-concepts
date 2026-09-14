@@ -34,7 +34,9 @@ const AUDIT_REPORT_PATH =
   process.env.NPM_AUDIT_REPORT_PATH ||
   path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'audit-report.json');
 
-const NPM_AUDIT_GATE_LEVEL = 'critical'; // Must match cdk-diff.yml / deploy.yml's --audit-level.
+// Supplied by security-scorecard.yml so it stays in step with the
+// --audit-level the cdk-diff.yml / deploy.yml gates actually enforce.
+const NPM_AUDIT_GATE_LEVEL = process.env.NPM_AUDIT_GATE_LEVEL || 'high';
 
 const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
 const repoSlug = process.env.GITHUB_REPOSITORY || 'afsting/developer-experience-concepts';
