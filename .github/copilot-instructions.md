@@ -33,8 +33,12 @@ site/                       Static site, no build tooling required to view
   there's a strong reason to split.
 - CDK bootstrap qualifier is `hnb659fds` (default). Account `315326805073`,
   region `us-east-1`.
-- Custom domain support exists but is commented out — see the class doc
-  comment at the top of the stack for the exact steps to enable it.
+- Custom domain (resume.pages-enterprise.com) is live, not commented out.
+  Domain/hosted-zone, the GitHub OIDC provider, and the three GitHub
+  Actions IAM role names are all overridable via `ResumeSiteStackProps`
+  (defaults match the deployed values — see the class doc comment) so a
+  second, independent copy of this stack can be deployed into the same
+  AWS account without colliding with the original.
 
 ## Email delivery (Resend)
 
