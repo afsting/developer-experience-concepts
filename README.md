@@ -127,6 +127,17 @@ Before the first deploy, one-time manual setup is required:
    ```bash
    cd infra && npx cdk bootstrap aws://ACCOUNT_ID/us-east-1
    ```
+5. **Repo secrets required by every synth/diff/deploy** — `cdk deploy`
+   fails fast (`requireEnv` in `infra/bin/resume-site.ts`) if any of
+   these are missing:
+
+   | Secret | Purpose |
+   |---|---|
+   | `AWS_DEPLOY_ROLE_ARN` | OIDC role assumed by `deploy.yml` |
+   | `AWS_CDK_DIFF_ROLE_ARN` | OIDC role assumed by `cdk-diff.yml` |
+   | `OTP_ADMIN_EMAIL` | Bootstrap admin allowlist entry for `/admin.html` |
+   | `OTP_HMAC_SECRET` | Signs the OTP-gate session cookie — must stay stable across deploys |
+   | `RESEND_API_KEY` | Sends the OTP login-code email — see **Email Delivery** below |
 
 ---
 
@@ -138,10 +149,32 @@ The site is served at `resume.pages-enterprise.com`:
   directly in `infra/lib/resume-site-stack.ts`.
 - Route 53 alias `A`/`AAAA` records point the subdomain at the CloudFront
   distribution, in the pre-existing `pages-enterprise.com` hosted zone.
-- Login-code email is sent via [Resend](https://resend.com), verified
-  at the sending-domain level (`send.pages-enterprise.com`) via DNS
-  records (DKIM/SPF/DMARC) in the same hosted zone — see
-  `site/how-it-was-built.html` for why this replaced SES.
+
+---
+
+## Email Delivery (Resend)
+
+The site is invite-only (see `how-it-was-built.html`), and the OTP
+login-code email is sent via [Resend](https://resend.com), not SES —
+SES was used originally but was migrated off in September 2026 because
+its sandbox mode requires every recipient to be individually verified;
+the old SES identity and its DNS records were fully removed once
+Resend had been proven working in production. Full rationale in
+[**How This Was Built →**](site/how-it-was-built.html).
+
+- **Sending domain**: `send.pages-enterprise.com`, verified at the
+  domain level via DKIM/SPF/DMARC DNS records in the same
+  `pages-enterprise.com` Route 53 hosted zone used for the custom
+  domain above.
+- **Managing it**: log into the [Resend dashboard](https://resend.com/login)
+  to rotate the API key, check the sending domain's verification
+  status, or look up delivery logs for a specific email. There's no
+  AWS-side equivalent — it's a plain third-party HTTPS API, not an AWS
+  service.
+- **Rotating the API key**: generate a new one in the Resend dashboard,
+  then `gh secret set RESEND_API_KEY` (or the GitHub web UI) — never
+  paste the raw key into a chat/conversation. The next deploy picks it
+  up automatically as a Lambda environment variable.
 
 ---
 
