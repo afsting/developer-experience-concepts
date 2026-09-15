@@ -9,6 +9,12 @@ import crypto from 'crypto';
  * in at all). Fails closed: any error verifying the session redirects to
  * the login page rather than passing the request through.
  *
+ * Note: this function is only attached to the *default* behavior — every
+ * *.css/*.js request (including login.html's own login.js) is served by
+ * a separate CloudFront behavior with no function association at all
+ * (see resume-site-stack.ts), so static assets are already reachable
+ * pre-auth without needing a URI exemption here.
+ *
  * The session token format (base64url(payload).base64url(HMAC-SHA256
  * signature)) and the HMAC secret (read from the associated CloudFront
  * KeyValueStore) must stay in sync with infra/lambda/common/session.ts,
