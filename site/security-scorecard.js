@@ -73,7 +73,8 @@
     }
     renderCards('dependabot-grid', [
       { label: 'PRs Opened (all time)', value: db.prs_opened_total, detail: 'Dependency-update PRs authored by dependabot[bot]' },
-      { label: 'PRs Merged (last 90 days)', value: db.prs_merged_last_90_days, detail: 'Evidence Dependabot updates are actually being merged' },
+      { label: 'PRs Merged (all time)', value: db.prs_merged_total, detail: 'Includes PRs closed without merging (e.g. superseded by a later bump)' },
+      { label: 'PRs Merged (last 90 days)', value: db.prs_merged_last_90_days, detail: 'Evidence Dependabot updates are actively being merged' },
     ]);
   }
 
