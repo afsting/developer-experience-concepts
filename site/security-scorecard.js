@@ -73,8 +73,9 @@
     }
     renderCards('dependabot-grid', [
       { label: 'PRs Opened (all time)', value: db.prs_opened_total, detail: 'Dependency-update PRs authored by dependabot[bot]' },
-      { label: 'PRs Merged (all time)', value: db.prs_merged_total, detail: 'Includes PRs closed without merging (e.g. superseded by a later bump)' },
-      { label: 'PRs Merged (last 90 days)', value: db.prs_merged_last_90_days, detail: 'Evidence Dependabot updates are actively being merged' },
+      { label: 'PRs Merged', value: db.prs_merged_total, detail: 'Evidence Dependabot updates are actually being merged' },
+      { label: 'PRs Open Now', value: db.prs_open_now, detail: 'Awaiting review/merge' },
+      { label: 'Closed Without Merging', value: db.prs_closed_unmerged, detail: 'e.g. superseded by a later bump, or a major-version bump rejected' },
     ]);
   }
 
