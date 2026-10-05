@@ -86,22 +86,29 @@ async function fetchCodeScanning() {
 }
 
 async function fetchDependabotActivity() {
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
+  // Opened/merged/open counts always add up (opened = merged + open + closed
+  // without merging), unlike a rolling merged-in-last-N-days figure, which
+  // silently drifts out of sync with "opened total" as a repo ages past N
+  // days. Report the full breakdown instead of a windowed count.
   const totalQuery = `repo:${repoSlug} type:pr author:app/dependabot`;
-  const mergedTotalQuery = `repo:${repoSlug} type:pr is:merged author:app/dependabot`;
-  const mergedRecentQuery = `repo:${repoSlug} type:pr is:merged author:app/dependabot merged:>=${ninetyDaysAgo}`;
+  const mergedQuery = `repo:${repoSlug} type:pr is:merged author:app/dependabot`;
+  const openQuery = `repo:${repoSlug} type:pr is:open author:app/dependabot`;
 
-  const [totalResult, mergedTotalResult, mergedRecentResult] = await Promise.all([
+  const [totalResult, mergedResult, openResult] = await Promise.all([
     githubApi(`/search/issues?q=${encodeURIComponent(totalQuery)}&per_page=1`),
-    githubApi(`/search/issues?q=${encodeURIComponent(mergedTotalQuery)}&per_page=1`),
-    githubApi(`/search/issues?q=${encodeURIComponent(mergedRecentQuery)}&per_page=1`),
+    githubApi(`/search/issues?q=${encodeURIComponent(mergedQuery)}&per_page=1`),
+    githubApi(`/search/issues?q=${encodeURIComponent(openQuery)}&per_page=1`),
   ]);
 
+  const prsOpenedTotal = totalResult?.total_count ?? 0;
+  const prsMergedTotal = mergedResult?.total_count ?? 0;
+  const prsOpenNow = openResult?.total_count ?? 0;
+
   return {
-    prs_opened_total: totalResult?.total_count ?? 0,
-    prs_merged_total: mergedTotalResult?.total_count ?? 0,
-    prs_merged_last_90_days: mergedRecentResult?.total_count ?? 0,
+    prs_opened_total: prsOpenedTotal,
+    prs_merged_total: prsMergedTotal,
+    prs_open_now: prsOpenNow,
+    prs_closed_unmerged: prsOpenedTotal - prsMergedTotal - prsOpenNow,
   };
 }
 
