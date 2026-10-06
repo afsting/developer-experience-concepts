@@ -124,9 +124,27 @@ async function readNpmAudit() {
   const vulnerabilities = report.metadata?.vulnerabilities || {};
   const severityOrder = ['critical', 'high', 'moderate', 'low', 'info'];
   const gateIndex = severityOrder.indexOf(NPM_AUDIT_GATE_LEVEL);
-  const gatePasses = severityOrder
-    .slice(0, gateIndex + 1)
-    .every((sev) => !vulnerabilities[sev]);
+  const gateSeverities = new Set(severityOrder.slice(0, gateIndex + 1));
+
+  // Mirror infra/scripts/check-audit.mjs's exemption, so this scorecard's
+  // "CI Gate Status" reports the same pass/fail the real CI gate does
+  // instead of a naive severity-count check: a finding whose *every*
+  // install path sits inside aws-cdk-lib's own bundled dependency tree
+  // (shipped as literal files in its tarball, not npm-resolved) can't be
+  // fixed from this repo, so check-audit.mjs doesn't fail the build on it
+  // — this should agree, or the scorecard shows "failing" forever on a
+  // finding that's actually a non-issue.
+  const EXEMPT_PATH_PREFIX = 'node_modules/aws-cdk-lib/node_modules/';
+  const perPackageFindings = Object.values(report.vulnerabilities || {});
+  const blockingFindings = perPackageFindings.filter((vuln) => {
+    if (!gateSeverities.has(vuln.severity)) return false;
+    const nodes = vuln.nodes || [];
+    const allBundledInCdk = nodes.length > 0 && nodes.every((n) => n.startsWith(EXEMPT_PATH_PREFIX));
+    return !allBundledInCdk;
+  });
+  const exemptedFindings = perPackageFindings.filter(
+    (vuln) => gateSeverities.has(vuln.severity) && !blockingFindings.includes(vuln),
+  );
 
   return {
     gate_level: NPM_AUDIT_GATE_LEVEL,
@@ -137,7 +155,8 @@ async function readNpmAudit() {
       high: vulnerabilities.high || 0,
       critical: vulnerabilities.critical || 0,
     },
-    gate_passes: gatePasses,
+    gate_passes: blockingFindings.length === 0,
+    exempted_bundled_findings: exemptedFindings.map((vuln) => vuln.name),
   };
 }
 
