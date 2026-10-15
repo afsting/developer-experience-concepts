@@ -285,6 +285,23 @@ describe('ResumeSiteStack', () => {
     });
   });
 
+  test('Interview-prep content is served only via an admin route and denied to CloudFront', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: 'GET /auth/admin/interview-prep',
+    });
+    template.hasResourceProperties('AWS::S3::BucketPolicy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Sid: 'DenyCloudFrontPrivatePrefix',
+            Effect: 'Deny',
+            Principal: { Service: 'cloudfront.amazonaws.com' },
+          }),
+        ]),
+      },
+    });
+  });
+
   test('Magic-link fallback login routes exist and the token table has TTL enabled', () => {
     template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
       RouteKey: 'POST /auth/admin/magic-link',

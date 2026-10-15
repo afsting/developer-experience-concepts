@@ -935,3 +935,83 @@ footer a:hover {
     background: #0a2a4a;
   }
 }
+
+
+/* ============================================================
+   Interview prep (admin-only) -- side-nav on the right
+   ============================================================ */
+body.has-side-nav-right {
+  grid-template-columns: 1fr 240px;
+  grid-template-areas:
+    "header header"
+    "main   side"
+    "footer footer";
+}
+
+body.has-side-nav-right .side-nav {
+  border-right: none;
+  border-left: 1px solid var(--color-border);
+}
+
+.side-nav .side-nav-heading {
+  color: rgba(255,255,255,0.65);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-sm) 0.5rem 0;
+}
+
+.prep-main {
+  max-width: 60rem;
+  padding: var(--space-lg) var(--space-md) var(--space-xl);
+}
+
+.prep-main h2 { margin-top: var(--space-lg); scroll-margin-top: var(--space-md); }
+.prep-status { color: var(--color-text-muted); }
+.prep-narrative { font-size: 1.05rem; margin-bottom: var(--space-md); }
+
+.prep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-md);
+}
+
+.prep-card,
+.prep-answer {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-md);
+  margin-top: var(--space-md);
+  scroll-margin-top: var(--space-md);
+}
+
+.prep-card h3,
+.prep-answer h3 { font-size: 1.05rem; margin-bottom: 0.25rem; }
+.prep-num { color: var(--color-accent); font-weight: 700; }
+.prep-story { font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.5rem; }
+.prep-outline { list-style: none; padding: 0; }
+.prep-outline li { padding: 0.25rem 0; border-top: 1px solid var(--color-border); font-size: 0.92rem; }
+.prep-label {
+  display: inline-block;
+  min-width: 6.5rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  vertical-align: top;
+}
+.prep-answer p { margin-top: 0.75rem; line-height: 1.65; }
+.prep-table { width: 100%; border-collapse: collapse; }
+.prep-table th, .prep-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--color-border); font-size: 0.9rem; }
+
+@media (max-width: 900px) {
+  body.has-side-nav-right {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "main"
+      "footer";
+  }
+}
+
+@media print {
+  body.has-side-nav-right .side-nav { display: none; }
+}

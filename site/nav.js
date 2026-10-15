@@ -67,6 +67,7 @@
         }
 
         if (data.admin && navList) {
+          navList.appendChild(navItem({ page: 'interview-prep', href: 'interview-prep.html', label: 'Interview Prep' }));
           navList.appendChild(navItem({ page: 'admin', href: 'admin.html', label: 'Admin' }));
         }
 
