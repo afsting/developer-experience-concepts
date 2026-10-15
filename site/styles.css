@@ -938,21 +938,8 @@ footer a:hover {
 
 
 /* ============================================================
-   Interview prep (admin-only) -- side-nav on the right
+   Interview prep (admin-only) -- left side-nav
    ============================================================ */
-body.has-side-nav-right {
-  grid-template-columns: 1fr 240px;
-  grid-template-areas:
-    "header header"
-    "main   side"
-    "footer footer";
-}
-
-body.has-side-nav-right .side-nav {
-  border-right: none;
-  border-left: 1px solid var(--color-border);
-}
-
 .side-nav .side-nav-heading {
   color: rgba(255,255,255,0.65);
   font-size: var(--font-size-sm);
@@ -1002,16 +989,6 @@ body.has-side-nav-right .side-nav {
 .prep-table { width: 100%; border-collapse: collapse; }
 .prep-table th, .prep-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--color-border); font-size: 0.9rem; }
 
-@media (max-width: 900px) {
-  body.has-side-nav-right {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "header"
-      "main"
-      "footer";
-  }
-}
-
 @media print {
-  body.has-side-nav-right .side-nav { display: none; }
+  body.has-side-nav .side-nav { display: none; }
 }

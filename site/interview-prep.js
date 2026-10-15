@@ -22,11 +22,12 @@
   var contentEl = document.getElementById('prep-content');
   var navEl = document.getElementById('prep-nav');
 
-  function renderOutline(q) {
+  function renderOutline(q, usedFor) {
     return '<article class="prep-card" id="outline-' + q.n + '">' +
       '<h3><span class="prep-num">' + q.n + '</span> ' + esc(q.question) + '</h3>' +
       '<p class="prep-story">Story: <strong>' + esc(q.story) + '</strong> &middot; ' +
-      '<a href="#answer-' + q.n + '">Full answer &darr;</a></p>' +
+      '<a href="#answer-' + q.n + '">Full answer &darr;</a>' +
+      (usedFor ? '<br>Best for: ' + esc(usedFor) : '') + '</p>' +
       '<ul class="prep-outline">' +
       q.outline.map(function (o) {
         return '<li><span class="prep-label">' + esc(o.label) + '</span> ' + esc(o.text) + '</li>';
@@ -45,6 +46,8 @@
 
   function render(data) {
     var qs = data.questions || [];
+    var usedForByQ = {};
+    (data.storyMap || []).forEach(function (s) { if (s.q) usedForByQ[s.q] = s.usedFor; });
 
     contentEl.innerHTML =
       '<h2 id="overview">' + esc(data.title) + '</h2>' +
@@ -62,11 +65,12 @@
       '<h2 id="story-map">Story map</h2>' +
       '<div class="plan-table-wrapper"><table class="prep-table"><thead><tr><th>Story</th><th>Best used for</th></tr></thead><tbody>' +
         (data.storyMap || []).map(function (s) {
-          return '<tr><td>' + esc(s.story) + '</td><td>' + esc(s.usedFor) + '</td></tr>';
+          var name = s.q ? '<a href="#outline-' + s.q + '">' + esc(s.story) + '</a>' : esc(s.story);
+          return '<tr><td>' + name + '</td><td>' + esc(s.usedFor) + '</td></tr>';
         }).join('') +
       '</tbody></table></div>' +
       '<h2 id="outlines">Quick reference: outlines</h2>' +
-      qs.map(renderOutline).join('') +
+      qs.map(function (q) { return renderOutline(q, usedForByQ[q.n]); }).join('') +
       '<h2 id="answers">Full answers</h2>' +
       qs.map(renderAnswer).join('');
 
