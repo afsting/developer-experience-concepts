@@ -395,6 +395,14 @@ export class ResumeSiteStack extends cdk.Stack {
       actions: ['s3:GetObject'],
       resources: [siteBucket.arnForObjects(INTERVIEW_PREP_KEY)],
     }));
+    // Without s3:ListBucket, S3 answers a missing key with AccessDenied
+    // instead of NoSuchKey, which the handler would surface as a 500.
+    // (No s3:prefix condition: the implicit existence check on GetObject
+    // doesn't send one, so a condition would leave the AccessDenied.)
+    interviewPrepFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['s3:ListBucket'],
+      resources: [siteBucket.bucketArn],
+    }));
 
     // Session status/logout — lets the frontend show "Logged in as
     // <email>" and clear the session cookie, since the cookie itself is
