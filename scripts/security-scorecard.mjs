@@ -86,22 +86,29 @@ async function fetchCodeScanning() {
 }
 
 async function fetchDependabotActivity() {
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
+  // Opened/merged/open counts always add up (opened = merged + open + closed
+  // without merging), unlike a rolling merged-in-last-N-days figure, which
+  // silently drifts out of sync with "opened total" as a repo ages past N
+  // days. Report the full breakdown instead of a windowed count.
   const totalQuery = `repo:${repoSlug} type:pr author:app/dependabot`;
-  const mergedTotalQuery = `repo:${repoSlug} type:pr is:merged author:app/dependabot`;
-  const mergedRecentQuery = `repo:${repoSlug} type:pr is:merged author:app/dependabot merged:>=${ninetyDaysAgo}`;
+  const mergedQuery = `repo:${repoSlug} type:pr is:merged author:app/dependabot`;
+  const openQuery = `repo:${repoSlug} type:pr is:open author:app/dependabot`;
 
-  const [totalResult, mergedTotalResult, mergedRecentResult] = await Promise.all([
+  const [totalResult, mergedResult, openResult] = await Promise.all([
     githubApi(`/search/issues?q=${encodeURIComponent(totalQuery)}&per_page=1`),
-    githubApi(`/search/issues?q=${encodeURIComponent(mergedTotalQuery)}&per_page=1`),
-    githubApi(`/search/issues?q=${encodeURIComponent(mergedRecentQuery)}&per_page=1`),
+    githubApi(`/search/issues?q=${encodeURIComponent(mergedQuery)}&per_page=1`),
+    githubApi(`/search/issues?q=${encodeURIComponent(openQuery)}&per_page=1`),
   ]);
 
+  const prsOpenedTotal = totalResult?.total_count ?? 0;
+  const prsMergedTotal = mergedResult?.total_count ?? 0;
+  const prsOpenNow = openResult?.total_count ?? 0;
+
   return {
-    prs_opened_total: totalResult?.total_count ?? 0,
-    prs_merged_total: mergedTotalResult?.total_count ?? 0,
-    prs_merged_last_90_days: mergedRecentResult?.total_count ?? 0,
+    prs_opened_total: prsOpenedTotal,
+    prs_merged_total: prsMergedTotal,
+    prs_open_now: prsOpenNow,
+    prs_closed_unmerged: prsOpenedTotal - prsMergedTotal - prsOpenNow,
   };
 }
 
@@ -117,9 +124,27 @@ async function readNpmAudit() {
   const vulnerabilities = report.metadata?.vulnerabilities || {};
   const severityOrder = ['critical', 'high', 'moderate', 'low', 'info'];
   const gateIndex = severityOrder.indexOf(NPM_AUDIT_GATE_LEVEL);
-  const gatePasses = severityOrder
-    .slice(0, gateIndex + 1)
-    .every((sev) => !vulnerabilities[sev]);
+  const gateSeverities = new Set(severityOrder.slice(0, gateIndex + 1));
+
+  // Mirror infra/scripts/check-audit.mjs's exemption, so this scorecard's
+  // "CI Gate Status" reports the same pass/fail the real CI gate does
+  // instead of a naive severity-count check: a finding whose *every*
+  // install path sits inside aws-cdk-lib's own bundled dependency tree
+  // (shipped as literal files in its tarball, not npm-resolved) can't be
+  // fixed from this repo, so check-audit.mjs doesn't fail the build on it
+  // — this should agree, or the scorecard shows "failing" forever on a
+  // finding that's actually a non-issue.
+  const EXEMPT_PATH_PREFIX = 'node_modules/aws-cdk-lib/node_modules/';
+  const perPackageFindings = Object.values(report.vulnerabilities || {});
+  const blockingFindings = perPackageFindings.filter((vuln) => {
+    if (!gateSeverities.has(vuln.severity)) return false;
+    const nodes = vuln.nodes || [];
+    const allBundledInCdk = nodes.length > 0 && nodes.every((n) => n.startsWith(EXEMPT_PATH_PREFIX));
+    return !allBundledInCdk;
+  });
+  const exemptedFindings = perPackageFindings.filter(
+    (vuln) => gateSeverities.has(vuln.severity) && !blockingFindings.includes(vuln),
+  );
 
   return {
     gate_level: NPM_AUDIT_GATE_LEVEL,
@@ -130,7 +155,8 @@ async function readNpmAudit() {
       high: vulnerabilities.high || 0,
       critical: vulnerabilities.critical || 0,
     },
-    gate_passes: gatePasses,
+    gate_passes: blockingFindings.length === 0,
+    exempted_bundled_findings: exemptedFindings.map((vuln) => vuln.name),
   };
 }
 

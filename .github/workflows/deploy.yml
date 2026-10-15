@@ -32,8 +32,9 @@ jobs:
 
       - name: Audit dependencies
         working-directory: infra
-        # See cdk-diff.yml's matching step for why this is 'high'.
-        run: npm audit --audit-level=high
+        # See cdk-diff.yml's matching step for why this calls the script
+        # instead of `npm audit --audit-level=high` directly.
+        run: node scripts/check-audit.mjs
 
       - name: Build CDK app
         working-directory: infra

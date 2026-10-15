@@ -73,8 +73,9 @@
     }
     renderCards('dependabot-grid', [
       { label: 'PRs Opened (all time)', value: db.prs_opened_total, detail: 'Dependency-update PRs authored by dependabot[bot]' },
-      { label: 'PRs Merged (all time)', value: db.prs_merged_total, detail: 'Includes PRs closed without merging (e.g. superseded by a later bump)' },
-      { label: 'PRs Merged (last 90 days)', value: db.prs_merged_last_90_days, detail: 'Evidence Dependabot updates are actively being merged' },
+      { label: 'PRs Merged', value: db.prs_merged_total, detail: 'Evidence Dependabot updates are actually being merged' },
+      { label: 'PRs Open Now', value: db.prs_open_now, detail: 'Awaiting review/merge' },
+      { label: 'Closed Without Merging', value: db.prs_closed_unmerged, detail: 'e.g. superseded by a later bump, or a major-version bump rejected' },
     ]);
   }
 
@@ -87,12 +88,18 @@
       return;
     }
     const v = audit.vulnerabilities;
+    const exempted = audit.exempted_bundled_findings || [];
+    const gateDetail = audit.gate_passes
+      ? exempted.length > 0
+        ? `Passes cdk-diff.yml/deploy.yml at --audit-level=${audit.gate_level} — ${exempted.join(', ')} is exempt (bundled inside aws-cdk-lib, unfixable from this repo)`
+        : `Passes cdk-diff.yml/deploy.yml at --audit-level=${audit.gate_level}`
+      : `Would fail cdk-diff.yml/deploy.yml at --audit-level=${audit.gate_level}`;
     renderCards('npm-audit-grid', [
       { label: 'Critical', value: v.critical, detail: `Gate: --audit-level=${audit.gate_level}` },
       { label: 'High', value: v.high, detail: 'infra/ dependency tree' },
       { label: 'Moderate', value: v.moderate, detail: 'infra/ dependency tree' },
       { label: 'Low / Info', value: v.low + v.info, detail: 'infra/ dependency tree' },
-      { label: 'CI Gate Status', value: audit.gate_passes ? '✅ passing' : '❌ failing', detail: `Would fail cdk-diff.yml/deploy.yml at --audit-level=${audit.gate_level}` },
+      { label: 'CI Gate Status', value: audit.gate_passes ? '✅ passing' : '❌ failing', detail: gateDetail },
     ]);
   }
 
