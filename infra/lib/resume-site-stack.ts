@@ -119,6 +119,9 @@ export interface ResumeSiteStackProps extends cdk.StackProps {
   readonly githubRepoName?: string;
 }
 
+/** S3 key of the admin-only interview-prep JSON (denied to CloudFront). */
+const INTERVIEW_PREP_KEY = 'private/interview-prep.json';
+
 export class ResumeSiteStack extends cdk.Stack {
   /** The CloudFront distribution domain name, output for reference. */
   public readonly distributionDomainName: string;
@@ -368,6 +371,31 @@ export class ResumeSiteStack extends cdk.Stack {
       resources: [sessionKvs.keyValueStoreArn],
     }));
 
+    // Admin-only interview-prep content. The JSON is published out-of-band
+    // (scripts/publish-interview-prep.mjs, from the gitignored .tmp/) to a
+    // private/ key that the bucket policy denies to CloudFront, so this
+    // Lambda is the only HTTP path to it.
+    const interviewPrepFn = new lambdaNode.NodejsFunction(this, 'InterviewPrepFunction', {
+      entry: path.join(__dirname, '../lambda/interviewPrep/index.ts'),
+      runtime: lambda.Runtime.NODEJS_24_X,
+      architecture: lambda.Architecture.ARM_64,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        CONTENT_BUCKET_NAME: siteBucket.bucketName,
+        CONTENT_OBJECT_KEY: INTERVIEW_PREP_KEY,
+        KVS_ARN: sessionKvs.keyValueStoreArn,
+      },
+      bundling: { externalModules: [] },
+    });
+    interviewPrepFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront-keyvaluestore:GetKey'],
+      resources: [sessionKvs.keyValueStoreArn],
+    }));
+    interviewPrepFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['s3:GetObject'],
+      resources: [siteBucket.arnForObjects(INTERVIEW_PREP_KEY)],
+    }));
+
     // Session status/logout — lets the frontend show "Logged in as
     // <email>" and clear the session cookie, since the cookie itself is
     // HttpOnly and unreadable from JS. GET reports the current signed
@@ -598,6 +626,7 @@ export class ResumeSiteStack extends cdk.Stack {
     addAuthRoute('AdminAllowlistGet', 'GET /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
     addAuthRoute('AdminAllowlistPost', 'POST /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
     addAuthRoute('AdminAllowlistDelete', 'DELETE /auth/admin/allowlist', adminFn, '/auth/admin/allowlist');
+    addAuthRoute('AdminInterviewPrep', 'GET /auth/admin/interview-prep', interviewPrepFn, '/auth/admin/interview-prep');
     addAuthRoute('Chat', 'POST /api/chat', chatFn, '/api/chat');
     addAuthRoute('SessionWhoAmI', 'GET /auth/session', sessionFn, '/auth/session');
     addAuthRoute('SessionLogout', 'POST /auth/logout', sessionFn, '/auth/logout');
@@ -782,6 +811,19 @@ export class ResumeSiteStack extends cdk.Stack {
             'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/${distribution.distributionId}`,
           },
         },
+      }),
+    );
+
+    // Keep everything under private/ out of CloudFront's reach. The Allow
+    // above covers the whole bucket, and the default behavior would
+    // otherwise serve private/* to any logged-in (non-admin) visitor.
+    siteBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: 'DenyCloudFrontPrivatePrefix',
+        effect: iam.Effect.DENY,
+        principals: [new iam.ServicePrincipal('cloudfront.amazonaws.com')],
+        actions: ['s3:GetObject'],
+        resources: [siteBucket.arnForObjects('private/*')],
       }),
     );
 
